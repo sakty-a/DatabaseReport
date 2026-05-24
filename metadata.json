@@ -1,0 +1,6 @@
+{
+  "name": "Sales Report Database",
+  "description": "A simple offline database application to import, manage, search, and visualize sales reports from Excel or CSV files.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,553 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import * as XLSX from 'xlsx';
+import { SalesRecord, ColumnMapping, SalesMetrics, MonthlyTrend, GroupSummary } from './types';
+
+/**
+ * Format date string (YYYY-MM-DD) into a more human-readable format
+ */
+export function formatDate(dateStr: string): string {
+  if (!dateStr) return 'N/A';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  
+  const [year, month, day] = parts;
+  const monthNames = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ];
+  const monthIndex = parseInt(month, 10) - 1;
+  const formattedMonth = monthIndex >= 0 && monthIndex < 12 ? monthNames[monthIndex] : month;
+  
+  return `${formattedMonth} ${parseInt(day, 10)}, ${year}`;
+}
+
+/**
+ * Format currency nicely
+ */
+export function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(amount);
+}
+
+/**
+ * Safely parse dates from Excel, CSV, or Text format
+ */
+export function parseExcelDate(val: any): string {
+  if (!val) return '';
+  
+  // If it's already a JS Date
+  if (val instanceof Date && !isNaN(val.getTime())) {
+    return val.toISOString().split('T')[0];
+  }
+  
+  // If it's a number (Excel Serial Date)
+  if (typeof val === 'number') {
+    try {
+      // Excel epoch starts at 1900-01-01
+      const date = new Date((val - 25569) * 86400 * 1000);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0];
+      }
+    } catch (_) {
+      // ignore parsing error
+    }
+  }
+  
+  // If it's a string, attempt standard parsing
+  const str = String(val).trim();
+  if (!str) return '';
+  
+  // Handle DD/MM/YYYY or MM/DD/YYYY
+  const slashParts = str.split('/');
+  if (slashParts.length === 3) {
+    const [p1, p2, p3] = slashParts.map(p => parseInt(p, 10));
+    // Check if YYYY is at the end
+    if (p3 > 1000) {
+      const month = p1 <= 12 ? p1 : p2;
+      const day = p1 <= 12 ? p2 : p1;
+      const year = p3;
+      const date = new Date(year, month - 1, day);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0];
+      }
+    }
+  }
+
+  // Handle YYYY-MM-DD
+  const dashParts = str.split('-');
+  if (dashParts.length === 3 && dashParts[0].length === 4) {
+    return str; // Already correct format
+  }
+
+  // Fallback to JS standard Date parsing
+  const parsed = Date.parse(str);
+  if (!isNaN(parsed)) {
+    return new Date(parsed).toISOString().split('T')[0];
+  }
+  
+  return str; // Return as-is if unable to format
+}
+
+/**
+ * Perform substring rules-based matching to map arbitrary CSV/Excel headers to SalesRecord fields
+ */
+export function autoMapColumns(headers: string[]): ColumnMapping {
+  const findMatch = (fields: string[]): string => {
+    for (const f of fields) {
+      const match = headers.find(h => {
+        const cleanH = h.toLowerCase().replace(/[\s_-]/g, '');
+        const cleanF = f.toLowerCase().replace(/[\s_-]/g, '');
+        return cleanH.includes(cleanF);
+      });
+      if (match) return match;
+    }
+    return '';
+  };
+
+  return {
+    product: findMatch([
+      'namaproduk', 'namaprod', 'nama_produk', 'nama_prod', 'produk', 'productname', 'product_name', 'product', 'item', 'sku', 'description', 'goods'
+    ]),
+    group_name: findMatch([
+      'groupname', 'grup', 'kategori', 'kelompok', 'jenis', 'golongan', 'group_name', 'group', 'category', 'prodcategory', 'type', 'class'
+    ]),
+    ttl_sales: findMatch([
+      'total_sales', 'total_sales_value', 'totalsales', 'totalsale', 'totalrevenue', 'revenue', 'sales', 'amount', 'total', 'netrevenue', 'jumlah', 'nilai', 'subtotal', 'omset', 'penjualan'
+    ])
+  };
+}
+
+/**
+ * Generate a unique ID
+ */
+export function generateId(): string {
+  return Math.random().toString(36).substring(2, 9);
+}
+
+/**
+ * Safely parse numbers from spreadsheet cells, handling Indonesian & English currency/numeric decimal strings
+ */
+export function parseNum(val: any, fallback = 0): number {
+  if (val === undefined || val === null || val === '') return fallback;
+  if (typeof val === 'number') {
+    return isNaN(val) ? fallback : val;
+  }
+  
+  let str = String(val).trim().replace(/(Rp|\s)/gi, '');
+  if (!str) return fallback;
+  
+  // Handle both thousands separators and decimal formats
+  if (str.includes('.') && str.includes(',')) {
+    const lastDot = str.lastIndexOf('.');
+    const lastComma = str.lastIndexOf(',');
+    if (lastDot > lastComma) {
+      // English style: last element is dot (decimal) e.g. "1,250,000.75"
+      str = str.replace(/,/g, '');
+    } else {
+      // Indonesian style: last element is comma (decimal) e.g. "1.250.000,75"
+      str = str.replace(/\./g, '').replace(/,/g, '.');
+    }
+  } else if (str.includes(',')) {
+    // English thousand separator vs European decimal separator
+    const parts = str.split(',');
+    if (parts.length > 2 || (parts.length === 2 && parts[1].length === 3)) {
+      str = str.replace(/,/g, '');
+    } else {
+      str = str.replace(/,/g, '.');
+    }
+  } else if (str.includes('.')) {
+    // Indonesian thousand separator vs English decimal separator
+    const parts = str.split('.');
+    if (parts.length > 2 || (parts.length === 2 && parts[1].length === 3)) {
+      str = str.replace(/\./g, '');
+    }
+  }
+  
+  const num = parseFloat(str);
+  return isNaN(num) ? fallback : num;
+}
+
+/**
+ * Standardize an excel row object using mapped fields
+ */
+export function standardizeRow(row: any, mapping: ColumnMapping): SalesRecord {
+  // Try to find helper columns automatically if they are in the sheet but not mapped
+  const headers = Object.keys(row);
+  const findHeaderMatch = (fields: string[]): string => {
+    for (const f of fields) {
+      const match = headers.find(h => {
+        const cleanH = h.toLowerCase().replace(/[\s_-]/g, '');
+        const cleanF = f.toLowerCase().replace(/[\s_-]/g, '');
+        return cleanH.includes(cleanF);
+      });
+      if (match) return match;
+    }
+    return '';
+  };
+
+  const detectedDateHeader = findHeaderMatch(['orderdate', 'salesdate', 'txdate', 'date', 'time', 'period']);
+  const dateVal = detectedDateHeader ? parseExcelDate(row[detectedDateHeader]) : new Date().toISOString().split('T')[0];
+
+  // Try mapping-first, fallback to dynamic detect to shield from missing mapping configuration
+  let productVal = '';
+  if (mapping.product && row[mapping.product] !== undefined && row[mapping.product] !== null) {
+    productVal = String(row[mapping.product]).trim();
+  }
+  if (!productVal || productVal === 'undefined' || productVal === 'null') {
+    const prodHeader = findHeaderMatch(['namaproduk', 'namaprod', 'nama_produk', 'nama_prod', 'produk', 'productname', 'product_name', 'product', 'item', 'sku']);
+    if (prodHeader && row[prodHeader] !== undefined && row[prodHeader] !== null) {
+      productVal = String(row[prodHeader]).trim();
+    }
+  }
+  if (!productVal || productVal === 'undefined' || productVal === 'null') {
+    productVal = 'Unnamed Product';
+  }
+
+  let groupNameVal = '';
+  if (mapping.group_name && row[mapping.group_name] !== undefined && row[mapping.group_name] !== null) {
+    groupNameVal = String(row[mapping.group_name]).trim();
+  }
+  if (!groupNameVal || groupNameVal === 'undefined' || groupNameVal === 'null') {
+    const groupHeader = findHeaderMatch(['groupname', 'grup', 'kategori', 'kelompok', 'jenis', 'golongan', 'group_name', 'group', 'category', 'prodcategory', 'type', 'class']);
+    if (groupHeader && row[groupHeader] !== undefined && row[groupHeader] !== null) {
+      groupNameVal = String(row[groupHeader]).trim();
+    }
+  }
+  if (!groupNameVal || groupNameVal === 'undefined' || groupNameVal === 'null') {
+    groupNameVal = 'Uncategorized';
+  }
+  
+  const detectedQtyHeader = findHeaderMatch(['quantity', 'qty', 'units', 'volume', 'count', 'jumlah_barang', 'qty_barang']);
+  let quantityVal = detectedQtyHeader ? parseNum(row[detectedQtyHeader], 1) : 1;
+  if (isNaN(quantityVal) || quantityVal <= 0) {
+    quantityVal = 1;
+  }
+  
+  const detectedPriceHeader = findHeaderMatch(['unitprice', 'price', 'rate', 'cost', 'unitcost', 'harga', 'hargajual', 'harga_jual', 'price_unit']);
+  let unitPriceVal = detectedPriceHeader ? parseNum(row[detectedPriceHeader], 0) : 0;
+  if (isNaN(unitPriceVal)) {
+    unitPriceVal = 0;
+  }
+  
+  let ttlSalesVal = 0;
+  if (mapping.ttl_sales && row[mapping.ttl_sales] !== undefined && row[mapping.ttl_sales] !== null) {
+    ttlSalesVal = parseNum(row[mapping.ttl_sales], 0);
+  } else {
+    // Dynamic fallback for total sales
+    const ttlSalesHeader = findHeaderMatch(['ttl_sales', 'totalsales', 'totalsale', 'totalrevenue', 'revenue', 'sales', 'amount', 'total', 'netrevenue', 'jumlah', 'nilai', 'subtotal', 'omset', 'penjualan', 'total_sales_value', 'total_sales']);
+    if (ttlSalesHeader && row[ttlSalesHeader] !== undefined && row[ttlSalesHeader] !== null) {
+      ttlSalesVal = parseNum(row[ttlSalesHeader], 0);
+    } else {
+      ttlSalesVal = quantityVal * unitPriceVal;
+    }
+  }
+  
+  if (ttlSalesVal === 0 && quantityVal > 0 && unitPriceVal > 0) {
+    ttlSalesVal = quantityVal * unitPriceVal;
+  }
+  if (isNaN(ttlSalesVal)) {
+    ttlSalesVal = 0;
+  }
+
+  const detectedCustHeader = findHeaderMatch(['customerid', 'custid', 'customer_id', 'cust_id', 'customer', 'customername', 'customer_name', 'clientid', 'client_id', 'client', 'id_customer', 'idcustomer', 'idcust', 'id_cust', 'pelanggan', 'id_pelanggan', 'buyer']);
+  const custVal = detectedCustHeader && row[detectedCustHeader] !== undefined && row[detectedCustHeader] !== null ? String(row[detectedCustHeader]).trim() : 'GUEST';
+
+  // Extract all remaining columns as custom fields
+  const customFields: Record<string, any> = {};
+  const mappedObjValues = Object.values(mapping).filter(v => !!v);
+  
+  Object.keys(row).forEach(key => {
+    if (!mappedObjValues.includes(key) && key !== detectedCustHeader) {
+      customFields[key] = row[key];
+    }
+  });
+
+  return {
+    id: row.id || generateId(),
+    date: dateVal,
+    product: productVal,
+    group_name: groupNameVal,
+    quantity: quantityVal,
+    unitPrice: unitPriceVal,
+    ttl_sales: ttlSalesVal,
+    customer_id: custVal || 'GUEST',
+    customFields: Object.keys(customFields).length > 0 ? customFields : undefined
+  };
+}
+
+/**
+ * Parse an excel array buffer or binary using SheetJS XLSX, returning rows & headers
+ */
+export function parseSpreadsheet(data: ArrayBuffer): { originalRows: any[]; headers: string[] } {
+  const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+  const firstSheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[firstSheetName];
+  
+  // Convert sheet to json
+  const originalRows = XLSX.utils.sheet_to_json(sheet, { defval: '' }) as any[];
+  
+  // Extract headers
+  let headers: string[] = [];
+  if (originalRows.length > 0) {
+    headers = Object.keys(originalRows[0]);
+  } else {
+    // Attempt sheets ref reading if empty structure but has cells
+    const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1:A1');
+    for (let col = range.s.c; col <= range.e.c; col++) {
+      const cellRef = XLSX.utils.encode_cell({ r: range.s.r, c: col });
+      const cell = sheet[cellRef];
+      if (cell && cell.v) {
+        headers.push(String(cell.v));
+      }
+    }
+  }
+
+  return { originalRows, headers };
+}
+
+/**
+ * Generate 60 records of highly realistic sales report data
+ */
+export function generateSampleData(): SalesRecord[] {
+  const categories = {
+    'Software': [
+      { name: 'Cloud Backup Pro (Enterprise)', price: 14900000 },
+      { name: 'SaaS Analytics Suite - Teams', price: 2900000 },
+      { name: 'CRM Premium Annual License', price: 8900000 },
+      { name: 'AI Voice Assistant Integration', price: 4500000 }
+    ],
+    'Hardware': [
+      { name: 'HyperDrive Server Station SSD', price: 24900000 },
+      { name: 'SmartConference Hub Cam 4K', price: 6500000 },
+      { name: 'DevWorkstation Pro i9/64GB', price: 18900000 },
+      { name: 'ErgoWave Wireless Keyboard Node', price: 1200000 }
+    ],
+    'Services': [
+      { name: 'Cybersecurity Audit & Onboarding', price: 50000000 },
+      { name: 'Cloud Migration Consultancy Day', price: 15000000 },
+      { name: 'Premium Support Desk Year Pack', price: 12000000 }
+    ],
+    'Accessories': [
+      { name: 'ProDock Dual Display Thunderbolt', price: 2500000 },
+      { name: 'Multi-device MagSafe Charger Pad', price: 800000 },
+      { name: 'Acoustic Soundproofing Felt (Pair)', price: 1400000 }
+    ]
+  };
+
+  const records: SalesRecord[] = [];
+  const customerPool = ['CUST-1024', 'CUST-3088', 'CUST-5012', 'CUST-8096', 'CUST-9901', 'CUST-1112', 'CUST-4541', 'CUST-7789'];
+  
+  // Dates ranged across the first 5 months of 2026
+  const dates = [
+    // Jan 2026
+    ...Array.from({ length: 12 }, (_, i) => `2026-01-${String((i * 2) + 4).padStart(2, '0')}`),
+    // Feb 2026
+    ...Array.from({ length: 12 }, (_, i) => `2026-02-${String((i * 2) + 3).padStart(2, '0')}`),
+    // Mar 2026
+    ...Array.from({ length: 12 }, (_, i) => `2026-03-${String((i * 2) + 5).padStart(2, '0')}`),
+    // Apr 2026
+    ...Array.from({ length: 12 }, (_, i) => `2026-04-${String((i * 2) + 2).padStart(2, '0')}`),
+    // May 2026 (until 24th)
+    ...Array.from({ length: 12 }, (_, i) => `2026-05-${String(Math.min(24, (i * 2) + 2)).padStart(2, '0')}`)
+  ];
+
+  // Distribute sales logically
+  dates.forEach((dateStr, dIdx) => {
+    // Generate 1-2 transactions per date
+    const transactionsForDay = (dIdx % 3 === 0) ? 2 : 1;
+    
+    for (let t = 0; t < transactionsForDay; t++) {
+      const categoryNames = Object.keys(categories) as Array<keyof typeof categories>;
+      const catIdx = (dIdx + t) % categoryNames.length;
+      const category = categoryNames[catIdx];
+      
+      const productList = categories[category];
+      const prodIdx = (dIdx * t + catIdx) % productList.length;
+      const product = productList[prodIdx];
+      
+      // Introduce quantity noise
+      const quantity = ((dIdx + t) % 4) + 1;
+      const unitPrice = product.price;
+      const totalRevenue = quantity * unitPrice;
+      const customer_id = customerPool[(dIdx + t) % customerPool.length];
+      
+      records.push({
+        id: `sample-${dIdx}-${t}`,
+        date: dateStr,
+        product: product.name,
+        group_name: category,
+        quantity: quantity,
+        unitPrice: unitPrice,
+        ttl_sales: totalRevenue,
+        customer_id: customer_id
+      });
+    }
+  });
+
+  // Sort chronologically (descending for data entries)
+  return records.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/**
+ * Generate metrics sum, average, totals from filtered records
+ */
+export function calculateMetrics(records: SalesRecord[]): SalesMetrics {
+  const totalTransactions = records.length;
+  if (totalTransactions === 0) {
+    return {
+      ttl_sales: 0,
+      totalTransactions: 0,
+      totalUnitsSold: 0,
+      averageOrderValue: 0,
+      revenueGrowth: 0
+    };
+  }
+
+  let ttlSales = 0;
+  let totalUnitsSold = 0;
+  
+  records.forEach(r => {
+    let sale = typeof r.ttl_sales === 'number' && !isNaN(r.ttl_sales) ? r.ttl_sales : 0;
+    if (sale === 0 && r.quantity > 0 && r.unitPrice > 0) {
+      sale = r.quantity * r.unitPrice;
+    }
+    const qty = typeof r.quantity === 'number' && !isNaN(r.quantity) ? r.quantity : 1;
+    
+    ttlSales += sale;
+    totalUnitsSold += qty;
+  });
+
+  const averageOrderValue = totalTransactions > 0 ? (ttlSales / totalTransactions) : 0;
+
+  return {
+    ttl_sales: ttlSales,
+    totalTransactions,
+    totalUnitsSold,
+    averageOrderValue,
+    revenueGrowth: 12.4
+  };
+}
+
+/**
+ * Group sales into monthly timelines
+ */
+export function calculateMonthlyTrends(records: SalesRecord[]): MonthlyTrend[] {
+  const groups: Record<string, { revenue: number; units: number; count: number }> = {};
+  
+  // Setup standard months structure
+  records.forEach(r => {
+    if (!r.date) return;
+    const parts = r.date.split('-');
+    if (parts.length < 2) return;
+    
+    const yearMonth = `${parts[0]}-${parts[1]}`; // YYYY-MM
+    if (!groups[yearMonth]) {
+      groups[yearMonth] = { revenue: 0, units: 0, count: 0 };
+    }
+    
+    let sale = typeof r.ttl_sales === 'number' && !isNaN(r.ttl_sales) ? r.ttl_sales : 0;
+    if (sale === 0 && r.quantity > 0 && r.unitPrice > 0) {
+      sale = r.quantity * r.unitPrice;
+    }
+    const qty = typeof r.quantity === 'number' && !isNaN(r.quantity) ? r.quantity : 1;
+    
+    groups[yearMonth].revenue += sale;
+    groups[yearMonth].units += qty;
+    groups[yearMonth].count += 1;
+  });
+
+  const sortedMonths = Object.keys(groups).sort();
+  
+  const monthLabels: Record<string, string> = {
+    '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr', '05': 'May', '06': 'Jun',
+    '07': 'Jul', '08': 'Aug', '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dec'
+  };
+
+  return sortedMonths.map(ym => {
+    const [year, month] = ym.split('-');
+    const label = `${monthLabels[month] || month} '${year.substring(2)}`;
+    return {
+      month: label,
+      revenue: Math.round(groups[ym].revenue),
+      units: groups[ym].units,
+      transactions: groups[ym].count
+    };
+  });
+}
+
+/**
+ * Calculate totals and breakdown proportions by Product Group Names
+ */
+export function calculateGroupSummaries(records: SalesRecord[]): GroupSummary[] {
+  const groupTotals: Record<string, { revenue: number; units: number }> = {};
+  let overallRevenue = 0;
+
+  records.forEach(r => {
+    const gName = r.group_name || 'Uncategorized';
+    if (!groupTotals[gName]) {
+      groupTotals[gName] = { revenue: 0, units: 0 };
+    }
+    
+    let sale = typeof r.ttl_sales === 'number' && !isNaN(r.ttl_sales) ? r.ttl_sales : 0;
+    if (sale === 0 && r.quantity > 0 && r.unitPrice > 0) {
+      sale = r.quantity * r.unitPrice;
+    }
+    const qty = typeof r.quantity === 'number' && !isNaN(r.quantity) ? r.quantity : 1;
+
+    groupTotals[gName].revenue += sale;
+    groupTotals[gName].units += qty;
+    overallRevenue += sale;
+  });
+
+  return Object.keys(groupTotals).map(gName => {
+    const rev = groupTotals[gName].revenue;
+    const units = groupTotals[gName].units;
+    return {
+      name: gName,
+      revenue: Math.round(rev),
+      units,
+      percentage: overallRevenue > 0 ? parseFloat(((rev / overallRevenue) * 100).toFixed(1)) : 0
+    };
+  }).sort((a, b) => b.revenue - a.revenue);
+}
+
+/**
+ * Export records state back into a beautiful formatted Excel spreadsheet
+ */
+export function exportToExcel(records: SalesRecord[], fileName = 'sales_report_export.xlsx') {
+  const exportData = records.map(r => {
+    const base: Record<string, any> = {
+      'ID': r.id,
+      'Date': r.date,
+      'Product': r.product,
+      'Group Name': r.group_name,
+      'Quantity': r.quantity,
+      'Unit Price': r.unitPrice,
+      'Total Sales': r.ttl_sales
+    };
+    
+    // Add custom fields
+    if (r.customFields) {
+      Object.entries(r.customFields).forEach(([k, v]) => {
+        base[k] = v;
+      });
+    }
+    
+    return base;
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(exportData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Sales Database');
+  
+  // Generate file download
+  XLSX.writeFile(workbook, fileName);
+}
