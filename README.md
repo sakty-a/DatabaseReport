@@ -1,12 +1,10 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+<img width="1200" height="480" alt="GHBanner" src="https://assets.pikiran-rakyat.com/crop/0x0:0x0/1200x675/photo/2025/02/15/1405299166.jpg" />
 </div>
 
-# Run and deploy your AI Studio app
+# Woi
 
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/a94a470e-3531-4455-b8b8-23d8c18ec5bf
+Dengan bantuan AI, newbie ini belajar bikin ginian 
 
 ## Run Locally
 
