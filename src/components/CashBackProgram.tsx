@@ -186,59 +186,77 @@ export default function CashBackProgram({ records, selectedCustId, onSelectCusto
 
   // Find matching participant or generate dynamic partner fallback
   const activeParticipant = useMemo<Participant>(() => {
-    if (!activeCustomer) {
-      return mergedParticipants[0];
-    }
-    const idLower = activeCustomer.customerId.toLowerCase().trim();
-    const match = mergedParticipants.find(p => 
-      p.codes.includes(idLower) ||
-      p.code.toLowerCase().trim() === idLower || 
-      idLower.includes(p.code.toLowerCase().trim()) ||
-      p.name.toLowerCase().trim() === idLower ||
-      idLower.includes(p.name.toLowerCase().trim())
-    );
-    
-    if (match) {
-      return match;
-    }
-    
-    // Dynamic generated partner fallback
-    const targetVal = Math.round(activeCustomer.totalSpend * 0.45);
-    const monthlySales = {
-      Jan: 0, Feb: 0, Mar: 0, Apr: 0,
-      Mei: 0, Jun: 0, Jul: 0, Agt: 0,
-      Sep: 0, Okt: 0, Nov: 0, Des: 0
-    };
-    
-    activeCustomer.dates.forEach(d => {
-      const parts = d.date.split('-');
-      if (parts.length === 3) {
-        const m = parseInt(parts[1], 10);
-        if (m === 1) monthlySales.Jan += d.spend;
-        else if (m === 2) monthlySales.Feb += d.spend;
-        else if (m === 3) monthlySales.Mar += d.spend;
-        else if (m === 4) monthlySales.Apr += d.spend;
-        else if (m === 5) monthlySales.Mei += d.spend;
-        else if (m === 6) monthlySales.Jun += d.spend;
-        else if (m === 7) monthlySales.Jul += d.spend;
-        else if (m === 8) monthlySales.Agt += d.spend;
-        else if (m === 9) monthlySales.Sep += d.spend;
-        else if (m === 10) monthlySales.Okt += d.spend;
-        else if (m === 11) monthlySales.Nov += d.spend;
-        else if (m === 12) monthlySales.Des += d.spend;
+    // 1. Direct match by selectedCustId in mergedParticipants first (handles 0-sales click selection accurately)
+    if (selectedCustId) {
+      const idLower = selectedCustId.toLowerCase().trim();
+      const match = mergedParticipants.find(p => 
+        p.codes.includes(idLower) ||
+        p.code.toLowerCase().trim() === idLower || 
+        idLower.includes(p.code.toLowerCase().trim()) ||
+        p.name.toLowerCase().trim() === idLower ||
+        idLower.includes(p.name.toLowerCase().trim())
+      );
+      if (match) {
+        return match;
       }
-    });
+    }
 
-    return {
-      no: 'N/A',
-      code: activeCustomer.customerId,
-      codes: [activeCustomer.customerId.toLowerCase()],
-      originalCodes: [activeCustomer.customerId],
-      name: 'Dynamic Registered Partner',
-      target: targetVal || 50000000,
-      monthlySales
-    };
-  }, [activeCustomer, mergedParticipants]);
+    // 2. If no direct participant match was found, look up active customer profile
+    if (activeCustomer) {
+      const idLower = activeCustomer.customerId.toLowerCase().trim();
+      const match = mergedParticipants.find(p => 
+        p.codes.includes(idLower) ||
+        p.code.toLowerCase().trim() === idLower || 
+        idLower.includes(p.code.toLowerCase().trim()) ||
+        p.name.toLowerCase().trim() === idLower ||
+        idLower.includes(p.name.toLowerCase().trim())
+      );
+      
+      if (match) {
+        return match;
+      }
+      
+      // Dynamic generated partner fallback
+      const targetVal = Math.round(activeCustomer.totalSpend * 0.45);
+      const monthlySales = {
+        Jan: 0, Feb: 0, Mar: 0, Apr: 0,
+        Mei: 0, Jun: 0, Jul: 0, Agt: 0,
+        Sep: 0, Okt: 0, Nov: 0, Des: 0
+      };
+      
+      activeCustomer.dates.forEach(d => {
+        const parts = d.date.split('-');
+        if (parts.length === 3) {
+          const m = parseInt(parts[1], 10);
+          if (m === 1) monthlySales.Jan += d.spend;
+          else if (m === 2) monthlySales.Feb += d.spend;
+          else if (m === 3) monthlySales.Mar += d.spend;
+          else if (m === 4) monthlySales.Apr += d.spend;
+          else if (m === 5) monthlySales.Mei += d.spend;
+          else if (m === 6) monthlySales.Jun += d.spend;
+          else if (m === 7) monthlySales.Jul += d.spend;
+          else if (m === 8) monthlySales.Agt += d.spend;
+          else if (m === 9) monthlySales.Sep += d.spend;
+          else if (m === 10) monthlySales.Okt += d.spend;
+          else if (m === 11) monthlySales.Nov += d.spend;
+          else if (m === 12) monthlySales.Des += d.spend;
+        }
+      });
+
+      return {
+        no: 'N/A',
+        code: activeCustomer.customerId,
+        codes: [activeCustomer.customerId.toLowerCase()],
+        originalCodes: [activeCustomer.customerId],
+        name: 'Dynamic Registered Partner',
+        target: targetVal || 50000000,
+        monthlySales
+      };
+    }
+
+    // 3. Absolute fallback to the first listed participant if database is completely empty
+    return mergedParticipants[0];
+  }, [selectedCustId, activeCustomer, mergedParticipants]);
 
   const liveMonthsMap = useMemo(() => ({
     1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr',
@@ -430,12 +448,6 @@ export default function CashBackProgram({ records, selectedCustId, onSelectCusto
                   {selectedProgram === 'cashback' ? 'PROGRAM CASH BACK 2026' : 'WHITE BONUS PROGRAM'}
                 </h4>
               </div>
-              <p className="text-[11px] text-slate-500 font-bold mt-0.5 whitespace-nowrap">
-                {selectedProgram === 'cashback' 
-                  ? 'Multi-period program tracker • 3 Periods of 4 Months each per year'
-                  : 'Multi-period program tracker • 4 Periods of 3 Months each per year'
-                }
-              </p>
             </div>
           </div>
 
@@ -547,7 +559,7 @@ export default function CashBackProgram({ records, selectedCustId, onSelectCusto
                   </span>
                 </div>
                 <div className="mt-2 text-[9px] font-bold leading-none">
-                  {pData.gap >= 0 ? '🟢 Target Met (Cash Back Unlocked)' : '🔴 Target Gap (Not Met)'}
+                  {pData.gap >= 0 ? 'Target Met (Cash Back Unlocked)' : 'Target Gap (Not Met)'}
                 </div>
               </div>
 
@@ -559,7 +571,7 @@ export default function CashBackProgram({ records, selectedCustId, onSelectCusto
                 <thead>
                   <tr className="bg-slate-100 border-b border-slate-150 text-[10px] text-slate-500 font-bold uppercase tracking-wider font-mono">
                     <th className="p-3">Month</th>
-                    <th className="p-3 text-right font-mono">Product Sales Registered</th>
+                    <th className="p-3 text-right font-mono">Sales</th>
                     <th className="p-3 text-right font-mono">Share of Target</th>
                   </tr>
                 </thead>

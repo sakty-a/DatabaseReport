@@ -117,3 +117,29 @@ export const WHITE_BONUS_PARTICIPANTS: RawParticipant[] = [
   { no: '72', code: 'B33480', name: 'DEWATA TRADING CORP SMR', target: 19300000 },
   { no: '73', code: 'B32801', name: 'SENTOSA CANTIKA COSMETIK', target: 10500000 }
 ];
+
+export const TOUR_BELGIA_PARTICIPANTS: RawParticipant[] = [
+  { no: '1', code: 'B20099', name: 'GROW STRONGER TOGETHER', target: 15444505000 }, // Wait, the image image says 15.444.500.000 Rp but let's look at the decimal separator: 15.444.500.000 (standard Indo format for fifteen billion four hundred forty-four million five hundred thousand). Yes!
+  { no: '2', code: 'B30177', name: 'JAYA MEGAH BERKAT', target: 1310400000 },
+  { no: '3', code: 'A87412', name: 'BELIA COSM', target: 14896100000 },
+  { no: '4', code: 'B33609', name: 'BERSAUDARA BERLIMPAH BERKAT', target: 987000000 },
+  { no: '5', code: 'A87461', name: 'BAHTERA YENDI SEJAHTERA CV', target: 6338800000 },
+  { no: '6', code: 'A83059', name: 'DEWI AYU ABADI CV ( Jelita Cosm )', target: 2302000000 },
+  { no: '7', code: 'A87569', name: 'CV. ENVIOSTORE', target: 2955000000 },
+  { no: '8', code: 'B12479', name: 'SURYA INDO PERKASA, CV', target: 1417800000 },
+  { no: '9', code: 'B34387', name: 'SURYA INDO PERKASA ( MERRY CHRISTIANA )', target: 1002600000 },
+  { no: '10', code: 'B36988', name: 'JAYA GLOBAL INSPIRA CV', target: 900000000 },
+  { no: '11', code: 'B18100', name: 'LITTLE STAR BSH', target: 900000000 },
+  { no: '12', code: 'B36896', name: 'USAHA BARU LESTARI', target: 900000000 }
+];
+
+export const TOUR_MALAYSIA_PARTICIPANTS: RawParticipant[] = [
+  { no: '1', code: 'B09997', name: 'BARU BEAUTY', target: 600300000 },
+  { no: '2', code: 'A80927', name: 'ASIAN GRO', target: 301700000 },
+  { no: '3', code: 'A86130', name: 'CV BUKIT PERMAI BERJAYA', target: 407800000 },
+  { no: '4', code: 'A87847', name: 'MAKMUR ABADI', target: 612400000 },
+  { no: '5', code: 'A82546', name: 'STAR, COSMETIC', target: 450000000 },
+  { no: '6', code: 'A86517', name: 'CV PUTRO JOYO', target: 861100000 },
+  { no: '7', code: 'A81998', name: 'PANDA LOVELY COS', target: 697900000 },
+  { no: '8', code: 'A86668', name: 'SEHAT CANTIK', target: 450000000 }
+];

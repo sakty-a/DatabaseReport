@@ -6,7 +6,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Database, Plus, Trash2, BarChart3, Download,
-  AlertCircle, Sparkles, RefreshCw, CircleHelp, Heart, User, Award
+  AlertCircle, Sparkles, RefreshCw, CircleHelp, Heart, User, Award, Plane
 } from 'lucide-react';
 
 import { SalesRecord } from './types';
@@ -16,6 +16,7 @@ import FileImport from './components/FileImport';
 import DashboardCharts from './components/DashboardCharts';
 import CustomerSpotlight from './components/CustomerSpotlight';
 import CashBackProgram from './components/CashBackProgram';
+import TourProgram from './components/TourProgram';
 import RecordFormModal from './components/RecordFormModal';
 
 export default function App() {
@@ -24,7 +25,7 @@ export default function App() {
   const [isInitialized, setIsInitialized] = useState(false);
   
   // Navigation
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'customer' | 'cashback'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'customer' | 'cashback' | 'tour'>('dashboard');
   const [selectedCustId, setSelectedCustId] = useState<string>('');
   
   // Modal controllers
@@ -312,7 +313,20 @@ export default function App() {
               title="Assess target progress and achievements for active cashback and bonus tiers"
             >
               <Award className="w-3.5 h-3.5" />
-              <span>Programs & Bonuses</span>
+              <span>Program CB dan WB</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('tour')}
+              className={`px-4 py-2 text-xs font-bold flex items-center gap-2 rounded-2xl transition-all cursor-pointer ${
+                activeTab === 'tour'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+              }`}
+              title="Assess targets and achievements for Tour Belgia & Tour Malaysia (Feb - Nov)"
+            >
+              <Plane className="w-3.5 h-3.5" />
+              <span>Tour 2026</span>
             </button>
           </div>
 
@@ -331,8 +345,16 @@ export default function App() {
               selectedCustId={selectedCustId} 
               onSelectCustomer={setSelectedCustId} 
             />
-          ) : (
+          ) : activeTab === 'cashback' ? (
             <CashBackProgram 
+              records={records} 
+              selectedCustId={selectedCustId} 
+              onSelectCustomer={(id) => {
+                setSelectedCustId(id);
+              }} 
+            />
+          ) : (
+            <TourProgram 
               records={records} 
               selectedCustId={selectedCustId} 
               onSelectCustomer={(id) => {
