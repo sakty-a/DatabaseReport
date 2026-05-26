@@ -42,6 +42,34 @@ export const CASH_BACK_PARTICIPANTS: RawParticipant[] = [
   { no: '27', code: 'B36896', name: 'USAHA BARU LESTARI', target: 100000000 }
 ];
 
+export const CASH_BACK_PARTICIPANTS_SEMARANG: RawParticipant[] = [
+  { no: '1', code: 'A96522', name: 'ADA FATMAWATI', target: 544598368 },
+  { no: '1', code: 'A97179', name: 'ADA KUDUS', target: 544598368 },
+  { no: '1', code: 'A96469', name: 'ADA MAJAPAHIT', target: 544598368 },
+  { no: '1', code: 'A97528', name: 'ADA PATI', target: 544598368 },
+  { no: '1', code: 'A96471', name: 'ADA SETIABUDI', target: 544598368 },
+  { no: '1', code: 'A96475', name: 'ADA SILIWANGI', target: 544598368 },
+  { no: '7', code: 'A97720', name: 'Albert Wijaya ( SMG1-2806 )', target: 191600000 },
+  { no: '8', code: 'B14691', name: 'BASA TOSERBA (PEMALANG)', target: 300000000 },
+  { no: '9', code: 'A97381', name: 'ELISHA BEAUTY', target: 750000000 },
+  { no: '10', code: 'B01235', name: 'ELISHA MART TK', target: 555900000 },
+  { no: '11', code: 'A96889', name: 'LARESS, TK.', target: 100000000 },
+  { no: '12', code: 'B00708', name: 'Laris Jaya', target: 163700000 },
+  { no: '13', code: 'A96596', name: 'LARIS PUTRA SEJATI, CV.', target: 198400000 },
+  { no: '14', code: 'A96814', name: 'Luwes Pasaraya Pati ( SMG1-0539 )', target: 258800000 },
+  { no: '15', code: 'A96663', name: 'MEKAR, TK. (PEKALONGAN)', target: 231500000 },
+  { no: '16', code: 'B01864', name: 'NAJMIA BEAUTY TC', target: 300000000 },
+  { no: '17', code: 'B15717', name: 'STUFF BY MS', target: 100200000 },
+  { no: '18', code: 'B37096', name: 'NAJMIA SAMBIROTO', target: 100000000 },
+  { no: '18b', code: 'B01238', name: 'RANIA BEAUTY COSMETIC TK', target: 424000000 },
+  { no: '19', code: 'B01715', name: 'OPG COSMETIC TC.', target: 100000000 },
+  { no: '20', code: 'B28221', name: 'NAJMIA BEAUTY TEMBALANG', target: 912700000 },
+  { no: '21', code: 'B28203', name: 'NAJMIA BEAUTY UNGARAN', target: 417400000 },
+  { no: '22', code: 'B28206', name: 'NAJMIA BEAUTY UNNES', target: 434600000 },
+  { no: '23', code: 'B31232', name: 'Elisha Mart Tlogosari', target: 245400000 },
+  { no: '17b', code: 'B36170', name: 'AIME BEAUTY SETIABUDI', target: 100000000 }
+];
+
 export const WHITE_BONUS_PARTICIPANTS: RawParticipant[] = [
   { no: '1', code: 'A82555', name: 'ANIS, COSMETIC', target: 5000000 },
   { no: '2', code: 'A83704', name: 'ANISA, MMR', target: 5000000 },
