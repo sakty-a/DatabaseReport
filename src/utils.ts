@@ -100,11 +100,14 @@ export function parseExcelDate(val: any): string {
  * Perform substring rules-based matching to map arbitrary CSV/Excel headers to SalesRecord fields
  */
 export function autoMapColumns(headers: string[]): ColumnMapping {
-  const findMatch = (fields: string[]): string => {
+  const findMatch = (fields: string[], exclude: string[] = []): string => {
     for (const f of fields) {
       const match = headers.find(h => {
         const cleanH = h.toLowerCase().replace(/[\s_-]/g, '');
         const cleanF = f.toLowerCase().replace(/[\s_-]/g, '');
+        if (exclude.some(ex => cleanH.includes(ex.toLowerCase().replace(/[\s_-]/g, '')))) {
+          return false;
+        }
         return cleanH.includes(cleanF);
       });
       if (match) return match;
@@ -120,8 +123,8 @@ export function autoMapColumns(headers: string[]): ColumnMapping {
       'groupname', 'grup', 'kategori', 'kelompok', 'jenis', 'golongan', 'group_name', 'group', 'category', 'prodcategory', 'type', 'class'
     ]),
     ttl_sales: findMatch([
-      'total_sales', 'total_sales_value', 'totalsales', 'totalsale', 'totalrevenue', 'revenue', 'sales', 'amount', 'total', 'netrevenue', 'jumlah', 'nilai', 'subtotal', 'omset', 'penjualan'
-    ])
+      'ttl_sales', 'ttlsales', 'total_sales', 'total_sales_value', 'totalsales', 'totalsale', 'totalrevenue', 'revenue', 'sales', 'amount', 'total', 'netrevenue', 'jumlah', 'nilai', 'subtotal', 'omset', 'penjualan'
+    ], ['salesman', 'salesperson', 'salesrep'])
   };
 }
 
@@ -181,11 +184,14 @@ export function parseNum(val: any, fallback = 0): number {
 export function standardizeRow(row: any, mapping: ColumnMapping): SalesRecord {
   // Try to find helper columns automatically if they are in the sheet but not mapped
   const headers = Object.keys(row);
-  const findHeaderMatch = (fields: string[]): string => {
+  const findHeaderMatch = (fields: string[], exclude: string[] = []): string => {
     for (const f of fields) {
       const match = headers.find(h => {
         const cleanH = h.toLowerCase().replace(/[\s_-]/g, '');
         const cleanF = f.toLowerCase().replace(/[\s_-]/g, '');
+        if (exclude.some(ex => cleanH.includes(ex.toLowerCase().replace(/[\s_-]/g, '')))) {
+          return false;
+        }
         return cleanH.includes(cleanF);
       });
       if (match) return match;
@@ -204,7 +210,7 @@ export function standardizeRow(row: any, mapping: ColumnMapping): SalesRecord {
   if (!productVal || productVal === 'undefined' || productVal === 'null') {
     const prodHeader = findHeaderMatch(['namaproduk', 'namaprod', 'nama_produk', 'nama_prod', 'produk', 'productname', 'product_name', 'product', 'item', 'sku']);
     if (prodHeader && row[prodHeader] !== undefined && row[prodHeader] !== null) {
-      productVal = String(row[prodHeader]).trim();
+      productVal = String(prodHeader).trim();
     }
   }
   if (!productVal || productVal === 'undefined' || productVal === 'null') {
@@ -242,7 +248,9 @@ export function standardizeRow(row: any, mapping: ColumnMapping): SalesRecord {
     ttlSalesVal = parseNum(row[mapping.ttl_sales], 0);
   } else {
     // Dynamic fallback for total sales
-    const ttlSalesHeader = findHeaderMatch(['ttl_sales', 'totalsales', 'totalsale', 'totalrevenue', 'revenue', 'sales', 'amount', 'total', 'netrevenue', 'jumlah', 'nilai', 'subtotal', 'omset', 'penjualan', 'total_sales_value', 'total_sales']);
+    const ttlSalesHeader = findHeaderMatch([
+      'ttl_sales', 'ttlsales', 'total_sales', 'total_sales_value', 'totalsales', 'totalsale', 'totalrevenue', 'revenue', 'sales', 'amount', 'total', 'netrevenue', 'jumlah', 'nilai', 'subtotal', 'omset', 'penjualan'
+    ], ['salesman', 'salesperson', 'salesrep']);
     if (ttlSalesHeader && row[ttlSalesHeader] !== undefined && row[ttlSalesHeader] !== null) {
       ttlSalesVal = parseNum(row[ttlSalesHeader], 0);
     } else {

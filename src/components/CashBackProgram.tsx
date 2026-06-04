@@ -13,7 +13,7 @@ import {
   Calendar 
 } from 'lucide-react';
 import { SalesRecord } from '../types';
-import { CASH_BACK_PARTICIPANTS, WHITE_BONUS_PARTICIPANTS, CASH_BACK_PARTICIPANTS_SEMARANG } from './programParticipants';
+import { CASH_BACK_PARTICIPANTS, WHITE_BONUS_PARTICIPANTS } from './programParticipants';
 
 interface CustomerSummary {
   customerId: string;
@@ -48,28 +48,9 @@ interface CashBackProgramProps {
 
 
 export default function CashBackProgram({ records, selectedCustId, onSelectCustomer }: CashBackProgramProps) {
-  const [region, setRegion] = useState<'surabaya' | 'semarang'>('surabaya');
   const [selectedProgram, setSelectedProgram] = useState<'cashback' | 'whitebonus'>('cashback');
   const [activePeriod, setActivePeriod] = useState<'I' | 'II' | 'III' | 'IV'>('I');
   const [whiteBonusFilter, setWhiteBonusFilter] = useState<'all' | 'under50' | '50_75' | 'upper75'>('all');
-
-  const handleRegionChange = (newRegion: 'surabaya' | 'semarang') => {
-    setRegion(newRegion);
-    if (newRegion === 'semarang') {
-      setSelectedProgram('cashback');
-      // Set selectedCustId to first item of Semarang list if the currently selected is not in Semarang
-      const semarangCodes = CASH_BACK_PARTICIPANTS_SEMARANG.map(p => p.code.toLowerCase());
-      if (!semarangCodes.includes(selectedCustId.toLowerCase())) {
-        onSelectCustomer(CASH_BACK_PARTICIPANTS_SEMARANG[0].code);
-      }
-    } else {
-      // Set selectedCustId to first item of Surabaya list if currently selected is not in Surabaya and it's cashback
-      const surabayaCodes = CASH_BACK_PARTICIPANTS.map(p => p.code.toLowerCase());
-      if (selectedProgram === 'cashback' && !surabayaCodes.includes(selectedCustId.toLowerCase())) {
-        onSelectCustomer(CASH_BACK_PARTICIPANTS[0].code);
-      }
-    }
-  };
 
   const handleProgramChange = (prog: 'cashback' | 'whitebonus') => {
     setSelectedProgram(prog);
@@ -95,9 +76,7 @@ export default function CashBackProgram({ records, selectedCustId, onSelectCusto
 
   // Combine participants with same "no"
   const mergedParticipants = useMemo(() => {
-    const list = selectedProgram === 'cashback'
-      ? (region === 'semarang' ? CASH_BACK_PARTICIPANTS_SEMARANG : CASH_BACK_PARTICIPANTS)
-      : WHITE_BONUS_PARTICIPANTS;
+    const list = selectedProgram === 'cashback' ? CASH_BACK_PARTICIPANTS : WHITE_BONUS_PARTICIPANTS;
     const groups: Record<string, typeof list> = {};
     list.forEach(p => {
       if (!groups[p.no]) {
@@ -142,7 +121,7 @@ export default function CashBackProgram({ records, selectedCustId, onSelectCusto
         monthlySales: emptyMonthlySales
       };
     });
-  }, [selectedProgram, region]);
+  }, [selectedProgram]);
 
   // Compile general Customer Summary records
   const customerSummaryList = useMemo<CustomerSummary[]>(() => {
@@ -436,35 +415,6 @@ export default function CashBackProgram({ records, selectedCustId, onSelectCusto
         {/* Header and Period Tabs Picker */}
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            {/* Region Filter Button Group */}
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Cabang:</span>
-              <div className="inline-flex bg-slate-100 p-1 rounded-xl shrink-0">
-                <button
-                  type="button"
-                  onClick={() => handleRegionChange('surabaya')}
-                  className={`px-3.5 py-1.5 text-xs font-black rounded-lg transition-all cursor-pointer flex items-center border-none ${
-                    region === 'surabaya'
-                      ? 'bg-white text-slate-900 shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800 bg-transparent'
-                  }`}
-                >
-                  Surabaya
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleRegionChange('semarang')}
-                  className={`px-3.5 py-1.5 text-xs font-black rounded-lg transition-all cursor-pointer flex items-center border-none ${
-                    region === 'semarang'
-                      ? 'bg-white text-slate-900 shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800 bg-transparent'
-                  }`}
-                >
-                  Semarang
-                </button>
-              </div>
-            </div>
-
             {/* Program Switcher Button Group */}
             <div className="inline-flex bg-slate-100 p-1 rounded-xl shrink-0 self-start">
               <button
@@ -481,16 +431,12 @@ export default function CashBackProgram({ records, selectedCustId, onSelectCusto
               </button>
               <button
                 type="button"
-                disabled={region === 'semarang'}
                 onClick={() => handleProgramChange('whitebonus')}
-                className={`px-4 py-2 text-xs font-black rounded-lg transition-all flex items-center gap-1.5 border-none ${
-                  region === 'semarang'
-                    ? 'opacity-40 cursor-not-allowed text-slate-400 bg-transparent'
-                    : selectedProgram === 'whitebonus'
-                    ? 'bg-white text-indigo-805 shadow-xs cursor-pointer'
-                    : 'text-slate-500 hover:text-slate-800 bg-transparent cursor-pointer'
+                className={`px-4 py-2 text-xs font-black rounded-lg transition-all cursor-pointer flex items-center gap-1.5 border-none ${
+                  selectedProgram === 'whitebonus'
+                    ? 'bg-white text-indigo-800 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800 bg-transparent'
                 }`}
-                title={region === 'semarang' ? 'White Bonus is currently not registered for Semarang region' : 'White Bonus'}
               >
                 <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0"></span>
                 White Bonus

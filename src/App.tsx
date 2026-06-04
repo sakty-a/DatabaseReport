@@ -6,7 +6,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Database, Plus, Trash2, BarChart3, Download,
-  AlertCircle, Sparkles, RefreshCw, CircleHelp, Heart, User, Award, Plane
+  AlertCircle, Sparkles, RefreshCw, CircleHelp, Heart, User, Award, Plane, Store
 } from 'lucide-react';
 
 import { SalesRecord } from './types';
@@ -18,6 +18,8 @@ import CustomerSpotlight from './components/CustomerSpotlight';
 import CashBackProgram from './components/CashBackProgram';
 import TourProgram from './components/TourProgram';
 import RecordFormModal from './components/RecordFormModal';
+import AccessGate from './components/AccessGate';
+import OutletSPG from './components/OutletSPG';
 
 export default function App() {
   // Main centralized state
@@ -25,7 +27,7 @@ export default function App() {
   const [isInitialized, setIsInitialized] = useState(false);
   
   // Navigation
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'customer' | 'cashback' | 'tour'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'customer' | 'cashback' | 'tour' | 'outletspg'>('dashboard');
   const [selectedCustId, setSelectedCustId] = useState<string>('');
   
   // Modal controllers
@@ -34,6 +36,24 @@ export default function App() {
 
   // Status/Notice Banner state
   const [themeNotice, setThemeNotice] = useState<string | null>(null);
+
+  // Access key check state
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem('sales_report_unlocked') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleUnlock = () => {
+    setIsUnlocked(true);
+    try {
+      sessionStorage.setItem('sales_report_unlocked', 'true');
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   // Load database on initialization
   useEffect(() => {
@@ -277,7 +297,7 @@ export default function App() {
 
         {/* Tab Selection Filter Navigation */}
         <div id="tab-navigation-bay" className="flex items-center justify-between bg-white p-2.5 rounded-3xl border border-slate-200 shadow-xs">
-          <div className="flex gap-1.5">
+          <div className="flex gap-1.5 font-sans">
             <button
               onClick={() => setActiveTab('dashboard')}
               className={`px-4 py-2 text-xs font-bold flex items-center gap-2 rounded-2xl transition-all cursor-pointer ${
@@ -287,7 +307,7 @@ export default function App() {
               }`}
             >
               <BarChart3 className="w-3.5 h-3.5" />
-              <span>Dashboard Analytics</span>
+              <span>Dashboard Informasi</span>
             </button>
 
             <button
@@ -300,7 +320,20 @@ export default function App() {
               title="Search and evaluate deep client-level trends, spend rates, and histories"
             >
               <User className="w-3.5 h-3.5" />
-              <span>Customer Spotlight</span>
+              <span>Rangkuman Customer</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('outletspg')}
+              className={`px-4 py-2 text-xs font-bold flex items-center gap-2 rounded-2xl transition-all cursor-pointer ${
+                activeTab === 'outletspg'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+              }`}
+              title="Assess sales and item detailed insights for manually registered SPG Outlets"
+            >
+              <Store className="w-3.5 h-3.5" />
+              <span>Outlet SPG</span>
             </button>
 
             <button
@@ -346,21 +379,31 @@ export default function App() {
               onSelectCustomer={setSelectedCustId} 
             />
           ) : activeTab === 'cashback' ? (
-            <CashBackProgram 
-              records={records} 
-              selectedCustId={selectedCustId} 
-              onSelectCustomer={(id) => {
-                setSelectedCustId(id);
-              }} 
-            />
+            !isUnlocked ? (
+              <AccessGate title="Program CB dan WB" onSuccess={handleUnlock} />
+            ) : (
+              <CashBackProgram 
+                records={records} 
+                selectedCustId={selectedCustId} 
+                onSelectCustomer={(id) => {
+                  setSelectedCustId(id);
+                }} 
+              />
+            )
+          ) : activeTab === 'tour' ? (
+            !isUnlocked ? (
+              <AccessGate title="Tour 2026" onSuccess={handleUnlock} />
+            ) : (
+              <TourProgram 
+                records={records} 
+                selectedCustId={selectedCustId} 
+                onSelectCustomer={(id) => {
+                  setSelectedCustId(id);
+                }} 
+              />
+            )
           ) : (
-            <TourProgram 
-              records={records} 
-              selectedCustId={selectedCustId} 
-              onSelectCustomer={(id) => {
-                setSelectedCustId(id);
-              }} 
-            />
+            <OutletSPG records={records} />
           )}
         </div>
 
@@ -370,9 +413,8 @@ export default function App() {
           <div className="space-y-1 font-sans">
             <p className="font-bold text-slate-800 text-sm">Offline-Secure Sandboxing: Di mana data saya disimpan?</p>
             <p className="leading-relaxed">
-              Basis data Anda sepenuhnya local and private untuk browser Anda! Basis data tersebut berjalan langsung di dalam cache klien sandbox container Anda (localStorage, dikelola dalam private session Anda). 
-              Tidak ada server web atau cloud yang melacak catatan penjualan Excel rahasia Anda. Anda 
-              dapat mengunduh basis data yang direvisi atau diperbarui sebagai folder Excel yang diformat baru kapan saja melalui tombol 
+              Data Anda disimpan langsung di browser dan tidak pernah dikirim ke server atau layanan cloud mana pun. 
+              Seluruh catatan penjualan tetap aman di perangkat Anda dan hanya dapat diakses oleh Anda. Kapan saja, data dapat diekspor menjadi folder Excel yang telah diformat melalui tombol 
               <strong>[Export to Excel]</strong>.
             </p>
           </div>
