@@ -12,6 +12,8 @@ import {
 import { SalesRecord } from './types';
 import { generateSampleData, exportToExcel } from './utils';
 
+import { Analytics } from '@vercel/analytics/react';
+
 import FileImport from './components/FileImport';
 import DashboardCharts from './components/DashboardCharts';
 import CustomerSpotlight from './components/CustomerSpotlight';
@@ -462,6 +464,9 @@ export default function App() {
         editRecord={editingRecord}
         existingGroups={dropdownMetaData.groupNames}
       />
+
+      {/* Vercel Web Analytics */}
+      <Analytics />
 
     </div>
   );
