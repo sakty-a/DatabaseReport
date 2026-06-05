@@ -44,6 +44,7 @@ interface SPGOutlet {
   custValue: string; // The customer code or customer name matched in the excel sheet
   aliasName: string; // Nickname/Label given by the user
   addedAt: string;
+  targetAmount?: number;
 }
 
 interface OutletSPGProps {
@@ -71,6 +72,7 @@ export default function OutletSPG({ records }: OutletSPGProps) {
   const [availSearchQuery, setAvailSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grouped' | 'transactions'>('grouped');
   const [manualError, setManualError] = useState<string>('');
+  const [targetInputValue, setTargetInputValue] = useState<string>('');
 
   // Save SPG Outlets to localStorage
   const saveOutlets = (updated: SPGOutlet[]) => {
@@ -239,6 +241,45 @@ export default function OutletSPG({ records }: OutletSPGProps) {
     return outlets.find(o => o.id === selectedOutletId) || null;
   }, [outlets, selectedOutletId]);
 
+  // Sync internal target input value on outlet switch
+  useEffect(() => {
+    if (selectedOutlet) {
+      setTargetInputValue(selectedOutlet.targetAmount ? String(selectedOutlet.targetAmount) : '');
+    } else {
+      setTargetInputValue('');
+    }
+  }, [selectedOutletId, selectedOutlet]);
+
+  const handleSaveTarget = () => {
+    if (!selectedOutletId) return;
+    if (targetInputValue.trim() === '') {
+      const updated = outlets.map(o => {
+        if (o.id === selectedOutletId) {
+          const { targetAmount, ...rest } = o;
+          return rest;
+        }
+        return o;
+      });
+      saveOutlets(updated);
+      return;
+    }
+    const numericVal = parseFloat(targetInputValue.replace(/[^0-9.-]+/g, ''));
+    if (isNaN(numericVal) || numericVal < 0) {
+      alert('Target nominal harus berupa angka!');
+      return;
+    }
+    const updated = outlets.map(o => {
+      if (o.id === selectedOutletId) {
+        return {
+          ...o,
+          targetAmount: numericVal
+        };
+      }
+      return o;
+    });
+    saveOutlets(updated);
+  };
+
   // Query records that match the selected outlet dynamically
   const matchedRecordsOfSelected = useMemo(() => {
     if (!selectedOutlet) return [];
@@ -273,6 +314,13 @@ export default function OutletSPG({ records }: OutletSPGProps) {
       averageBasket
     };
   }, [matchedRecordsOfSelected]);
+
+  const progressPercentage = useMemo(() => {
+    if (!selectedOutlet || !selectedOutlet.targetAmount || selectedOutlet.targetAmount <= 0) {
+      return 0;
+    }
+    return (selectedOutletMetrics.totalSales / selectedOutlet.targetAmount) * 100;
+  }, [selectedOutlet, selectedOutletMetrics]);
 
   // 1. Grouped Purchases Breakdown: What product items does this outlet purchase?
   const groupedProductsInfo = useMemo(() => {
@@ -646,20 +694,85 @@ export default function OutletSPG({ records }: OutletSPGProps) {
             {/* 2. Micro Stats Performance Panel */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               
-              <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs text-left">
-                <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">Total Sales</span>
-                <span className="text-sm md:text-base font-black text-slate-900 tracking-tight font-mono block mt-1">
-                  {formatCurrency(selectedOutletMetrics.totalSales)}
-                </span>
-                <span className="text-[9px] text-slate-500 font-medium block mt-1">Accumulated client ledger spend</span>
+              {/* Total Sales Box */}
+              <div className="bg-white border border-slate-200 p-4.5 rounded-2xl shadow-3xs text-left flex flex-col justify-between h-full">
+                <div>
+                  <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">Total Sales</span>
+                  <span className="text-sm md:text-base font-black text-slate-900 tracking-tight font-mono block mt-1.5">
+                    {formatCurrency(selectedOutletMetrics.totalSales)}
+                  </span>
+                </div>
+                <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[9px] text-slate-500 font-bold">
+                  <span>Client Ledger Accumulation</span>
+                  <span className="text-slate-400 font-mono">{matchedRecordsOfSelected.length} txs</span>
+                </div>
               </div>
 
-              <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs text-left">
-                <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">Avg. invoice basket</span>
-                <span className="text-sm md:text-base font-black text-slate-900 tracking-tight font-mono block mt-1">
-                  {formatCurrency(selectedOutletMetrics.averageBasket)}
-                </span>
-                <span className="text-[9px] text-slate-500 font-medium block mt-1">Value of sales per order row</span>
+              {/* Target Tracker (SPG) Box */}
+              <div className="bg-white border border-slate-200 p-4.5 rounded-2xl shadow-3xs text-left flex flex-col justify-between h-full">
+                <div>
+                  <div className="flex items-center justify-between flex-wrap gap-1">
+                    <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">Target Tracker (SPG)</span>
+                    {selectedOutlet?.targetAmount && selectedOutlet.targetAmount > 0 ? (
+                      <span className={`text-[8.5px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${progressPercentage >= 100 ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-indigo-50 text-indigo-700 border border-indigo-100'}`}>
+                        {progressPercentage >= 100 ? 'Achieved!' : `${progressPercentage.toFixed(0)}%`}
+                      </span>
+                    ) : (
+                      <span className="text-[8.5px] px-2 py-0.5 rounded font-bold uppercase tracking-wider bg-slate-50 text-slate-400 border border-slate-100">
+                        Pending
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Progress bar info */}
+                  {selectedOutlet?.targetAmount && selectedOutlet.targetAmount > 0 ? (
+                    <div className="mt-1.5 space-y-1.5">
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-sm md:text-base font-black text-slate-900 tracking-tight font-mono">
+                          {formatCurrency(selectedOutlet.targetAmount)}
+                        </span>
+                        <span className="text-[9px] font-mono font-bold text-slate-450">
+                          {formatCurrency(selectedOutletMetrics.totalSales)} reached
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-500 ${progressPercentage >= 100 ? 'bg-emerald-500' : 'bg-indigo-600'}`} 
+                          style={{ width: `${Math.min(100, progressPercentage)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-1.5">
+                      <span className="text-sm md:text-base font-black text-slate-300 tracking-tight font-mono block">
+                        Rp —
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Target setup input box */}
+                <div className="mt-3 pt-2.5 border-t border-slate-100">
+                  <div className="flex gap-1.5">
+                    <div className="relative flex-1">
+                      <span className="absolute left-2 top-1.5 bottom-1.5 text-[9px] font-black text-slate-400 flex items-center">Rp</span>
+                      <input
+                        type="text"
+                        placeholder="Input target (ex: 20000000)"
+                        value={targetInputValue}
+                        onChange={(e) => setTargetInputValue(e.target.value)}
+                        className="w-full pl-6 pr-1.5 py-1 bg-slate-50 border border-slate-200 rounded-md text-[10px] font-mono font-bold text-slate-800 focus:outline-none focus:border-indigo-600 focus:bg-white"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSaveTarget}
+                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[9.5px] font-bold rounded-md cursor-pointer border-none shadow-3xs transition-all tracking-tight shrink-0"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
               </div>
 
             </div>
@@ -754,32 +867,6 @@ export default function OutletSPG({ records }: OutletSPGProps) {
                     BREAKDOWNS ITEM
                   </h4>
                 </div>
-
-                {/* Switch list visualization */}
-                <div className="inline-flex bg-slate-150 p-1.5 rounded-xl shrink-0 self-start">
-                  <button
-                     type="button"
-                     onClick={() => setViewMode('grouped')}
-                     className={`px-3.5 py-1.5 text-xs font-black rounded-lg transition-all border-none ${
-                       viewMode === 'grouped'
-                         ? 'bg-white text-slate-900 shadow-xs cursor-pointer'
-                         : 'text-slate-500 bg-transparent cursor-pointer'
-                     }`}
-                  >
-                    Grouped by Products ({Math.min(30, groupedProductsInfo.length)})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('transactions')}
-                    className={`px-3.5 py-1.5 text-xs font-black rounded-lg transition-all border-none ${
-                      viewMode === 'transactions'
-                        ? 'bg-white text-indigo-805 shadow-xs cursor-pointer'
-                        : 'text-slate-500 bg-transparent cursor-pointer'
-                    }`}
-                  >
-                    Historical Logs ({Math.min(30, matchedRecordsOfSelected.length)} shown)
-                  </button>
-                </div>
               </div>
 
               {matchedRecordsOfSelected.length === 0 ? (
@@ -790,7 +877,7 @@ export default function OutletSPG({ records }: OutletSPGProps) {
                     We could not find any sales records in the current database matching Cust ID <strong className="text-indigo-650 font-mono font-bold leading-none">{selectedOutlet.custValue}</strong>. Clear filters or load a different workbook spreadsheet featuring matches.
                   </p>
                 </div>
-              ) : viewMode === 'grouped' ? (
+              ) : (
                 /* Grouped product items table */
                 <div className="overflow-x-auto border border-slate-100 rounded-xl">
                   <table className="w-full text-left text-[11px] border-collapse">
@@ -813,32 +900,6 @@ export default function OutletSPG({ records }: OutletSPGProps) {
                           </td>
                           <td className="py-1.5 px-3 text-right font-bold font-mono text-indigo-700">{formatCurrency(p.totalSales)}</td>
                           <td className="py-1.5 px-3 text-right text-slate-500 font-mono text-[10px]">{p.lastDate || '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                /* Historical dynamic line items log */
-                <div className="overflow-x-auto max-h-[320px] overflow-y-auto custom-scrollbar border border-slate-100 rounded-xl">
-                  <table className="w-full text-left text-[11px] border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-100 bg-slate-50 text-slate-500 font-extrabold uppercase tracking-wider text-[9px] sticky top-0 bg-slate-50 z-10">
-                        <th className="py-2 px-3">Date</th>
-                        <th className="py-2 px-3">Product Description</th>
-                        <th className="py-2 px-3 text-center">Qty</th>
-                        <th className="py-2 px-3 text-right">Unit Price</th>
-                        <th className="py-2 px-3 text-right">Net Sales</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-sans text-slate-700 text-[11px]">
-                      {matchedRecordsOfSelected.slice().sort((a,b) => b.date.localeCompare(a.date)).slice(0, 30).map((r, i) => (
-                        <tr key={r.id || i} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="py-1.5 px-3 text-slate-500 font-mono text-[9.5px] whitespace-nowrap">{r.date}</td>
-                          <td className="py-1.5 px-3 font-semibold text-slate-900">{r.product}</td>
-                          <td className="py-1.5 px-3 text-center font-mono font-medium">{r.quantity}</td>
-                          <td className="py-1.5 px-3 text-right font-mono text-slate-500">{formatCurrency(r.unitPrice)}</td>
-                          <td className="py-1.5 px-3 text-right font-bold font-mono text-indigo-650">{formatCurrency(r.ttl_sales)}</td>
                         </tr>
                       ))}
                     </tbody>

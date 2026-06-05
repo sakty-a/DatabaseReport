@@ -16,3 +16,12 @@
   --color-indigo-800: #003e6e;
   --color-indigo-900: #003157;
 }
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+

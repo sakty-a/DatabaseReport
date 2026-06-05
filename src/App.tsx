@@ -20,6 +20,7 @@ import TourProgram from './components/TourProgram';
 import RecordFormModal from './components/RecordFormModal';
 import AccessGate from './components/AccessGate';
 import OutletSPG from './components/OutletSPG';
+import CustomCashBackProgram from './components/CustomCashBackProgram';
 
 export default function App() {
   // Main centralized state
@@ -27,7 +28,7 @@ export default function App() {
   const [isInitialized, setIsInitialized] = useState(false);
   
   // Navigation
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'customer' | 'cashback' | 'tour' | 'outletspg'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'customer' | 'cashback' | 'tour' | 'outletspg' | 'custom_cashback'>('dashboard');
   const [selectedCustId, setSelectedCustId] = useState<string>('');
   
   // Modal controllers
@@ -249,12 +250,12 @@ export default function App() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-extrabold text-slate-900 tracking-tight font-sans">Sales Database Project</h1>
+                <h1 className="text-xl font-extrabold text-slate-900 tracking-tight font-sans">REPORTKUY</h1>
                 {isBrowsingSample && (
                   <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider">Workbook Template</span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 font-semibold mt-0.5">Offline-private browser database repository for CSV/Excel analytics reporting</p>
+              <p className="text-xs text-slate-500 font-semibold mt-0.5">ReportKuy automatically turns Excel and CSV files into interactive dashboards, statistics, and AI-powered business reports.</p>
             </div>
           </div>
 
@@ -296,11 +297,11 @@ export default function App() {
         <FileImport onImportComplete={handleBatchImport} currentCount={records.length} />
 
         {/* Tab Selection Filter Navigation */}
-        <div id="tab-navigation-bay" className="flex items-center justify-between bg-white p-2.5 rounded-3xl border border-slate-200 shadow-xs">
-          <div className="flex gap-1.5 font-sans">
+        <div id="tab-navigation-bay" className="flex items-center justify-between bg-white p-2 md:p-2.5 rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="flex gap-1 md:gap-1.5 font-sans overflow-x-auto no-scrollbar w-full py-0.5">
             <button
               onClick={() => setActiveTab('dashboard')}
-              className={`px-4 py-2 text-xs font-bold flex items-center gap-2 rounded-2xl transition-all cursor-pointer ${
+              className={`px-3 md:px-4 py-2 text-xs font-bold flex items-center gap-2 rounded-2xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                 activeTab === 'dashboard'
                   ? 'bg-indigo-600 text-white shadow-xs'
                   : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
@@ -312,7 +313,7 @@ export default function App() {
 
             <button
               onClick={() => setActiveTab('customer')}
-              className={`px-4 py-2 text-xs font-bold flex items-center gap-2 rounded-2xl transition-all cursor-pointer ${
+              className={`px-3 md:px-4 py-2 text-xs font-bold flex items-center gap-2 rounded-2xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                 activeTab === 'customer'
                   ? 'bg-indigo-600 text-white shadow-xs'
                   : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
@@ -325,7 +326,7 @@ export default function App() {
 
             <button
               onClick={() => setActiveTab('outletspg')}
-              className={`px-4 py-2 text-xs font-bold flex items-center gap-2 rounded-2xl transition-all cursor-pointer ${
+              className={`px-3 md:px-4 py-2 text-xs font-bold flex items-center gap-2 rounded-2xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                 activeTab === 'outletspg'
                   ? 'bg-indigo-600 text-white shadow-xs'
                   : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
@@ -337,33 +338,46 @@ export default function App() {
             </button>
 
             <button
+              onClick={() => setActiveTab('custom_cashback')}
+              className={`px-3 md:px-4 py-2 text-xs font-bold flex items-center gap-2 rounded-2xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                activeTab === 'custom_cashback'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+              }`}
+              title="Track progress and achievements for your custom registered CB and WB outlets"
+            >
+              <Award className="w-3.5 h-3.5" />
+              <span>CB dan WB</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('cashback')}
-              className={`px-4 py-2 text-xs font-bold flex items-center gap-2 rounded-2xl transition-all cursor-pointer ${
+              className={`px-3 md:px-4 py-2 text-xs font-bold flex items-center gap-2 rounded-2xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                 activeTab === 'cashback'
                   ? 'bg-indigo-600 text-white shadow-xs'
                   : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
               }`}
               title="Assess target progress and achievements for active cashback and bonus tiers"
             >
-              <Award className="w-3.5 h-3.5" />
-              <span>Program CB dan WB</span>
+              <Award className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Program CB dan WB 🔒</span>
             </button>
 
             <button
               onClick={() => setActiveTab('tour')}
-              className={`px-4 py-2 text-xs font-bold flex items-center gap-2 rounded-2xl transition-all cursor-pointer ${
+              className={`px-3 md:px-4 py-2 text-xs font-bold flex items-center gap-2 rounded-2xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                 activeTab === 'tour'
                   ? 'bg-indigo-600 text-white shadow-xs'
                   : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
               }`}
               title="Assess targets and achievements for Tour Belgia & Tour Malaysia (Feb - Nov)"
             >
-              <Plane className="w-3.5 h-3.5" />
-              <span>Tour 2026</span>
+              <Plane className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Tour 2026 🔒</span>
             </button>
           </div>
 
-          <div className="text-[10px] text-slate-400 font-mono pr-4 hidden sm:block">
+          <div className="text-[10px] text-slate-400 font-mono pr-4 hidden lg:block shrink-0">
             Indexed Storage Cache
           </div>
         </div>
@@ -377,6 +391,14 @@ export default function App() {
               records={records} 
               selectedCustId={selectedCustId} 
               onSelectCustomer={setSelectedCustId} 
+            />
+          ) : activeTab === 'custom_cashback' ? (
+            <CustomCashBackProgram 
+              records={records} 
+              selectedCustId={selectedCustId} 
+              onSelectCustomer={(id) => {
+                setSelectedCustId(id);
+              }} 
             />
           ) : activeTab === 'cashback' ? (
             !isUnlocked ? (
