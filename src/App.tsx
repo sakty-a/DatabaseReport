@@ -6,7 +6,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Database, Plus, Trash2, BarChart3, Download,
-  AlertCircle, Sparkles, RefreshCw, CircleHelp, Heart, User, Award, Plane, Store
+  AlertCircle, Sparkles, RefreshCw, CircleHelp, Heart, User, Award, Plane, Store, Cpu
 } from 'lucide-react';
 
 import { SalesRecord } from './types';
@@ -21,6 +21,7 @@ import RecordFormModal from './components/RecordFormModal';
 import AccessGate from './components/AccessGate';
 import OutletSPG from './components/OutletSPG';
 import CustomCashBackProgram from './components/CustomCashBackProgram';
+import ModelingFeature from './components/ModelingFeature';
 
 export default function App() {
   // Main centralized state
@@ -28,7 +29,7 @@ export default function App() {
   const [isInitialized, setIsInitialized] = useState(false);
   
   // Navigation
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'customer' | 'cashback' | 'tour' | 'outletspg' | 'custom_cashback'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'customer' | 'cashback' | 'tour' | 'outletspg' | 'custom_cashback' | 'modeling'>('dashboard');
   const [selectedCustId, setSelectedCustId] = useState<string>('');
   
   // Modal controllers
@@ -375,6 +376,19 @@ export default function App() {
               <Plane className="w-3.5 h-3.5 text-indigo-400" />
               <span>Tour 2026 🔒</span>
             </button>
+
+            <button
+              onClick={() => setActiveTab('modeling')}
+              className={`px-3 md:px-4 py-2 text-xs font-bold flex items-center gap-2 rounded-2xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                activeTab === 'modeling'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+              }`}
+              title="Analyze forecasting models: Linear Regression & Extrapolation forecasts"
+            >
+              <Cpu className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Modeling 🔒</span>
+            </button>
           </div>
 
           <div className="text-[10px] text-slate-400 font-mono pr-4 hidden lg:block shrink-0">
@@ -423,6 +437,12 @@ export default function App() {
                   setSelectedCustId(id);
                 }} 
               />
+            )
+          ) : activeTab === 'modeling' ? (
+            !isUnlocked ? (
+              <AccessGate title="Modeling" onSuccess={handleUnlock} />
+            ) : (
+              <ModelingFeature records={records} />
             )
           ) : (
             <OutletSPG records={records} />

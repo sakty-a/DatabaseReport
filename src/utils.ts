@@ -322,85 +322,146 @@ export function parseSpreadsheet(data: ArrayBuffer): { originalRows: any[]; head
 }
 
 /**
- * Generate 60 records of highly realistic sales report data
+ * Generate 60+ records of highly realistic Rohto Mentholatum retail sales data
  */
 export function generateSampleData(): SalesRecord[] {
-  const categories = {
-    'Software': [
-      { name: 'Cloud Backup Pro (Enterprise)', price: 14900000 },
-      { name: 'SaaS Analytics Suite - Teams', price: 2900000 },
-      { name: 'CRM Premium Annual License', price: 8900000 },
-      { name: 'AI Voice Assistant Integration', price: 4500000 }
+  const brandProducts: Record<string, { name: string; price: number }[]> = {
+    'ACNES': [
+      { name: 'Acnes Creamy Wash 100g', price: 32500 },
+      { name: 'Acnes Sebum Control Toner 150ml', price: 41000 },
+      { name: 'Acnes Spot Care Gel 18g', price: 36000 }
     ],
-    'Hardware': [
-      { name: 'HyperDrive Server Station SSD', price: 24900000 },
-      { name: 'SmartConference Hub Cam 4K', price: 6500000 },
-      { name: 'DevWorkstation Pro i9/64GB', price: 18900000 },
-      { name: 'ErgoWave Wireless Keyboard Node', price: 1200000 }
+    'HADA LABO': [
+      { name: 'Hada Labo Gokujyun Moisturizing Lotion 100ml', price: 45000 },
+      { name: 'Hada Labo Gokujyun Face Wash 100g', price: 38000 },
+      { name: 'Hada Labo Shirojyun Whitening Essence 30g', price: 140000 }
     ],
-    'Services': [
-      { name: 'Cybersecurity Audit & Onboarding', price: 50000000 },
-      { name: 'Cloud Migration Consultancy Day', price: 15000000 },
-      { name: 'Premium Support Desk Year Pack', price: 12000000 }
+    'KHALISA': [
+      { name: 'Khalisa Lip Care Peach', price: 22000 },
+      { name: 'Khalisa Skin Care Face Serum', price: 65000 }
     ],
-    'Accessories': [
-      { name: 'ProDock Dual Display Thunderbolt', price: 2500000 },
-      { name: 'Multi-device MagSafe Charger Pad', price: 800000 },
-      { name: 'Acoustic Soundproofing Felt (Pair)', price: 1400000 }
+    'LIP ICE': [
+      { name: 'Lip Ice Color Balm Pink', price: 25000 },
+      { name: 'Lip Ice Sheer Color Strawberry', price: 28550 }
+    ],
+    'MELANO CC': [
+      { name: 'Melano CC Vit C Brightening Essence 20ml', price: 165000 },
+      { name: 'Melano CC Brightening Gel 100g', price: 190000 }
+    ],
+    'MENTHOLATUM': [
+      { name: 'Mentholatum Lipbalm Active Protective', price: 18000 },
+      { name: 'Mentholatum Deep Moist Lipcare', price: 24050 }
+    ],
+    'OXY': [
+      { name: 'Oxy 5 Acne Pimple Gel 10g', price: 55000 },
+      { name: 'Oxy Deep Wash Facial Cleanser 100g', price: 45000 }
+    ],
+    'ROHTO EYE CARE': [
+      { name: 'Rohto Cool Eye Drops 7ml', price: 15000 },
+      { name: 'Rohto Dry Fresh Eye Drops 10ml', price: 18000 }
+    ],
+    'ROHTO EYE FLUSH': [
+      { name: 'Rohto Eye Flush Liquid 150ml', price: 28000 }
+    ],
+    'SELSUN': [
+      { name: 'Selsun Blue Anti-Dandruff Shampoo 120ml', price: 38500 },
+      { name: 'Selsun Yellow Double Active 100ml', price: 42000 }
+    ],
+    'SKIN AQUA': [
+      { name: 'Skin Aqua UV Moisture Gel SPF 30 40g', price: 52000 },
+      { name: 'Skin Aqua UV Moisture Milk SPF 50 40g', price: 55000 }
+    ],
+    'SUNPLAY': [
+      { name: 'Sunplay Ultra Shield Sunscreen SPF 99', price: 72000 },
+      { name: 'Sunplay Baby Mild Sunscreen SPF 39', price: 68000 }
     ]
   };
 
+  const BRAND_MONTH_TARGETS: Record<string, number[]> = {
+    'ACNES': [1125072426, 1220656908, 1397655359, 1211227431, 1327530908],
+    'HADA LABO': [2855217719, 3097792776, 3546980846, 3073862575, 3369018459],
+    'KHALISA': [1296778, 1406950, 1610961, 1396081, 1530135],
+    'LIP ICE': [167590383, 181828613, 208194239, 180424002, 197748526],
+    'MELANO CC': [14144790, 15346510, 17571795, 15227960, 16690166],
+    'MENTHOLATUM': [3694980, 4008900, 4590201, 3977932, 4359897],
+    'OXY': [2891176, 3136806, 3591651, 3112575, 3411448],
+    'ROHTO EYE CARE': [101489684, 110112097, 126078639, 109261490, 119752906],
+    'ROHTO EYE FLUSH': [1189122, 1290148, 1477223, 1280182, 1403107],
+    'SELSUN': [1691637223, 1835356209, 2101487669, 1821178229, 1996049896],
+    'SKIN AQUA': [1118591691, 1213625579, 1389604469, 1204250419, 1319883955],
+    'SUNPLAY': [11183391, 12133515, 13892906, 12039784, 13195859]
+  };
+
+  const MONTHLY_ACH_RATES = [0.92, 1.01, 0.89, 1.08, 0.99];
   const records: SalesRecord[] = [];
-  const customerPool = ['CUST-1024', 'CUST-3088', 'CUST-5012', 'CUST-8096', 'CUST-9901', 'CUST-1112', 'CUST-4541', 'CUST-7789'];
-  
-  // Dates ranged across the first 5 months of 2026
-  const dates = [
-    // Jan 2026
-    ...Array.from({ length: 12 }, (_, i) => `2026-01-${String((i * 2) + 4).padStart(2, '0')}`),
-    // Feb 2026
-    ...Array.from({ length: 12 }, (_, i) => `2026-02-${String((i * 2) + 3).padStart(2, '0')}`),
-    // Mar 2026
-    ...Array.from({ length: 12 }, (_, i) => `2026-03-${String((i * 2) + 5).padStart(2, '0')}`),
-    // Apr 2026
-    ...Array.from({ length: 12 }, (_, i) => `2026-04-${String((i * 2) + 2).padStart(2, '0')}`),
-    // May 2026 (until 24th)
-    ...Array.from({ length: 12 }, (_, i) => `2026-05-${String(Math.min(24, (i * 2) + 2)).padStart(2, '0')}`)
+
+  // Realistic retail distributor customer pool from programParticipants
+  const customerPool = [
+    'A87461 - BAHTERA YENDI SEJATERA CV',
+    'A87412 - BELIA COSM',
+    'B20099 - GROW STRONGER TOGETHER',
+    'A82202 - CV. CITRA SEJAHTERA',
+    'B36988 - CV. JAYA GLOBAL',
+    'A87569 - CV. ENVIOSTORE',
+    'A83059 - DEWI AYU ABADI CV ( JELITA COSM )',
+    'B12479 - SURYA INDO PERKASA, CV',
+    'B33609 - BERSAUDARA BERLIMPAH BERKAT'
   ];
 
-  // Distribute sales logically
-  dates.forEach((dateStr, dIdx) => {
-    // Generate 1-2 transactions per date
-    const transactionsForDay = (dIdx % 3 === 0) ? 2 : 1;
-    
-    for (let t = 0; t < transactionsForDay; t++) {
-      const categoryNames = Object.keys(categories) as Array<keyof typeof categories>;
-      const catIdx = (dIdx + t) % categoryNames.length;
-      const category = categoryNames[catIdx];
-      
-      const productList = categories[category];
-      const prodIdx = (dIdx * t + catIdx) % productList.length;
-      const product = productList[prodIdx];
-      
-      // Introduce quantity noise
-      const quantity = ((dIdx + t) % 4) + 1;
-      const unitPrice = product.price;
-      const totalRevenue = quantity * unitPrice;
-      const customer_id = customerPool[(dIdx + t) % customerPool.length];
-      
-      records.push({
-        id: `sample-${dIdx}-${t}`,
-        date: dateStr,
-        product: product.name,
-        group_name: category,
-        quantity: quantity,
-        unitPrice: unitPrice,
-        ttl_sales: totalRevenue,
-        customer_id: customer_id
-      });
-    }
-  });
+  const brandKeys = Object.keys(BRAND_MONTH_TARGETS);
 
-  // Sort chronologically (descending for data entries)
+  // For each of the 5 historical months of 2026 (Jan to May)
+  for (let m = 0; m < 5; m++) {
+    const achRate = MONTHLY_ACH_RATES[m];
+    const monthStr = String(m + 1).padStart(2, '0');
+
+    brandKeys.forEach((brand, bIdx) => {
+      const targetsList = BRAND_MONTH_TARGETS[brand];
+      const targetVal = targetsList ? targetsList[m] : 100000000;
+      const actualSalesValue = Math.round(targetVal * achRate);
+
+      const products = brandProducts[brand] || [{ name: 'Generic ' + brand, price: 50000 }];
+
+      // We make 2 large B2B transactions to distribute the sales evenly
+      // Transaction 1 (53%)
+      const p1 = products[0];
+      const shareValue1 = Math.round(actualSalesValue * 0.53);
+      const qty1 = Math.max(1, Math.round(shareValue1 / p1.price));
+      const sales1 = qty1 * p1.price;
+      const cust1 = customerPool[(bIdx + m) % customerPool.length];
+
+      records.push({
+        id: `sample-2026-${monthStr}-${brand.substring(0,3).toLowerCase()}-1`,
+        date: `2026-${monthStr}-${String(10 + (bIdx % 5)).padStart(2, '0')}`,
+        product: p1.name,
+        group_name: brand,
+        quantity: qty1,
+        unitPrice: p1.price,
+        ttl_sales: sales1,
+        customer_id: cust1
+      });
+
+      // Transaction 2 (47%)
+      const p2 = products[1] || p1;
+      const shareValue2 = Math.round(actualSalesValue * 0.47);
+      const qty2 = Math.max(1, Math.round(shareValue2 / p2.price));
+      const sales2 = qty2 * p2.price;
+      const cust2 = customerPool[(bIdx + m + 3) % customerPool.length];
+
+      records.push({
+        id: `sample-2026-${monthStr}-${brand.substring(0,3).toLowerCase()}-2`,
+        date: `2026-${monthStr}-${String(20 + (bIdx % 5)).padStart(2, '0')}`,
+        product: p2.name,
+        group_name: brand,
+        quantity: qty2,
+        unitPrice: p2.price,
+        ttl_sales: sales2,
+        customer_id: cust2
+      });
+    });
+  }
+
+  // Sort records chronologically descending for layout tables
   return records.sort((a, b) => b.date.localeCompare(a.date));
 }
 

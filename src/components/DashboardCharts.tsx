@@ -8,7 +8,7 @@ import {
   AreaChart, Area, PieChart, Pie, Cell, ResponsiveContainer,
   XAxis, YAxis, CartesianGrid, Tooltip
 } from 'recharts';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, Users, Award, Sparkles } from 'lucide-react';
 import { SalesRecord } from '../types';
 import {
   calculateMetrics,
@@ -16,6 +16,7 @@ import {
   calculateGroupSummaries,
   formatCurrency
 } from '../utils';
+import { CASH_BACK_PARTICIPANTS, WHITE_BONUS_PARTICIPANTS } from './programParticipants';
 
 interface DashboardChartsProps {
   records: SalesRecord[];
@@ -35,6 +36,105 @@ export default function DashboardCharts({ records }: DashboardChartsProps) {
 
   // State to track active month for top products details
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+
+  const [showAllOutlets, setShowAllOutlets] = useState(false);
+
+  // Combine participants & parsed rows for custom customer name (cust_nm) resolution
+  const customerNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    CASH_BACK_PARTICIPANTS.forEach(p => {
+      map.set(p.code.toUpperCase().trim(), p.name.trim());
+    });
+    WHITE_BONUS_PARTICIPANTS.forEach(p => {
+      map.set(p.code.toUpperCase().trim(), p.name.trim());
+    });
+
+    records.forEach(r => {
+      const cId = (r.customer_id || 'GUEST').trim();
+      const cIdUpper = cId.toUpperCase();
+      
+      if (!map.has(cIdUpper) || map.get(cIdUpper) === 'GUEST') {
+        if (r.customFields) {
+          // Prioritize exact/prefix check for 'cust_nm' / 'custnm'
+          let nameKey = Object.keys(r.customFields).find(k => {
+            const kl = k.toLowerCase().replace(/_/g, '').replace(/[\s-]/g, '');
+            return kl === 'custnm' || kl === 'nama' || kl === 'name' || kl === 'clientname' || kl === 'customername';
+          });
+          
+          if (!nameKey) {
+            nameKey = Object.keys(r.customFields).find(k => {
+              const kl = k.toLowerCase().replace(/_/g, '').replace(/[\s-]/g, '');
+              return (kl.includes('name') || kl.includes('nama') || kl.includes('customer') || kl.includes('client') || kl.includes('pelanggan') || kl.includes('buyer') || kl.includes('custnm')) && 
+                     !kl.includes('id') && !kl.includes('code');
+            });
+          }
+
+          if (nameKey && r.customFields[nameKey]) {
+            const valStr = String(r.customFields[nameKey]).trim();
+            if (valStr && valStr.toLowerCase() !== cId.toLowerCase()) {
+              map.set(cIdUpper, valStr);
+            }
+          }
+        }
+      }
+    });
+    return map;
+  }, [records]);
+
+  // Memoize Pareto analysis aggregates
+  const paretoData = useMemo(() => {
+    const customerMap: Record<string, { customerId: string; totalSales: number; count: number }> = {};
+    let totalSalesAll = 0;
+
+    records.forEach(r => {
+      const custId = (r.customer_id || 'GUEST').trim();
+      let sale = typeof r.ttl_sales === 'number' && !isNaN(r.ttl_sales) ? r.ttl_sales : 0;
+      if (sale === 0 && r.quantity > 0 && r.unitPrice > 0) {
+        sale = r.quantity * r.unitPrice;
+      }
+      if (!customerMap[custId]) {
+        customerMap[custId] = { customerId: custId, totalSales: 0, count: 0 };
+      }
+      customerMap[custId].totalSales += sale;
+      customerMap[custId].count += 1;
+      totalSalesAll += sale;
+    });
+
+    const sortedCustomers = Object.values(customerMap).sort((a, b) => b.totalSales - a.totalSales);
+
+    let cumulativeSum = 0;
+    const list = sortedCustomers.map((cust) => {
+      const currentSales = cust.totalSales;
+      cumulativeSum += currentSales;
+      const pct = totalSalesAll > 0 ? (currentSales / totalSalesAll) * 100 : 0;
+      const cumPct = totalSalesAll > 0 ? (cumulativeSum / totalSalesAll) * 100 : 0;
+      
+      const isPareto = ((cumulativeSum - currentSales) / totalSalesAll) * 100 < 80;
+
+      // Dynamically resolve customer name (cust_nm) or fall back to code/ID
+      const resolvedName = customerNameMap.get(cust.customerId.toUpperCase()) || cust.customerId;
+
+      return {
+        ...cust,
+        name: resolvedName,
+        percentage: pct,
+        cumulativePercentage: cumPct,
+        isPareto
+      };
+    });
+
+    const paretoOutlets = list.filter(o => o.isPareto);
+    const paretoRevenue = paretoOutlets.reduce((sum, o) => sum + o.totalSales, 0);
+
+    return {
+      totalSalesAll,
+      list,
+      paretoCount: paretoOutlets.length,
+      totalCount: list.length,
+      paretoRevenue,
+      paretoPercentage: totalSalesAll > 0 ? (paretoRevenue / totalSalesAll) * 100 : 0
+    };
+  }, [records, customerNameMap]);
 
   const selectedMonthTopProducts = useMemo(() => {
     if (!selectedMonth) return [];
@@ -617,6 +717,120 @@ export default function DashboardCharts({ records }: DashboardChartsProps) {
 
         <div className="mt-auto shrink-0 p-3 bg-indigo-50/50 rounded-2xl border border-indigo-100/50 text-[11px] leading-relaxed text-indigo-700 font-medium font-sans">
           <strong>Secure Studio:</strong> Data remains client-side. Convert spreadsheets instantly here.
+        </div>
+      </div>
+
+      {/* 9. Elite McKinsey Pareto Outlet Analysis block */}
+      <div className="lg:col-span-12 bg-white border border-slate-200 rounded-3xl p-6 shadow-xs hover:border-slate-350 transition-all duration-250 font-sans space-y-6">
+        <div id="pareto-header-block" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-amber-650 text-amber-600" />
+              <h3 className="font-extrabold text-slate-950 text-base tracking-tight uppercase">
+                Kanal Distribusi Pareto (Strategic 80/20 Analysis)
+              </h3>
+            </div>
+            <p className="text-[11px] text-slate-500 font-semibold leading-relaxed">
+              Mengevaluasi kontributor kritis (Pareto Outlets) yang mengontrol <strong className="text-amber-700 font-extrabold text-xs">80% dari total revenue</strong> portofolio.
+            </p>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="bg-amber-50 border border-amber-200/50 rounded-2xl px-3.5 py-1.5 text-right shrink-0">
+              <span className="text-[9px] text-amber-800 font-black uppercase tracking-wider block font-mono">Pareto Core Contribution</span>
+              <span className="text-sm font-black text-slate-900 font-mono block mt-0.5">
+                {paretoData.paretoPercentage.toFixed(1)}% ({formatCurrency(paretoData.paretoRevenue)})
+              </span>
+            </div>
+            <div className="bg-slate-50 border border-slate-200/50 rounded-2xl px-3.5 py-1.5 text-right shrink-0">
+              <span className="text-[9px] text-slate-500 font-black uppercase tracking-wider block font-mono font-sans">Core Outlets</span>
+              <span className="text-sm font-black text-slate-900 font-mono block mt-0.5">
+                {paretoData.paretoCount} / {paretoData.totalCount} ({paretoData.totalCount > 0 ? ((paretoData.paretoCount / paretoData.totalCount) * 100).toFixed(1) : 0}%)
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Dynamic Warning Alert on severe client concentration risk */}
+        {paretoData.paretoPercentage >= 75 && (paretoData.paretoCount / paretoData.totalCount) <= 0.35 && (
+          <div className="bg-amber-50/60 border-l-4 border-amber-600 p-3.5 rounded-r-xl font-medium text-[11.5px] leading-relaxed text-slate-800 shadow-3xs flex items-start gap-2.5">
+            <Sparkles className="w-4 h-4 text-amber-700 shrink-0 mt-0.5 animate-pulse" />
+            <div>
+              <strong>ReportKuy Consult - Executive Commentary:</strong> Portofolio Anda memperlihatkan derajat konsentrasi pendapatan tinggi di mana <strong className="text-amber-800 font-black">{paretoData.paretoCount} outlet</strong> mengalirkan <strong className="text-amber-800 font-black">{paretoData.paretoPercentage.toFixed(1)}%</strong> seluruh transaksi penjualan. Pastikan program dukungan logistik, fleksibilitas kredit, dan kecukupan "White Bonus" terfokus total pada entitas elit ini guna mengamankan arus kas korporat.
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white border border-slate-150 rounded-2xl overflow-hidden shadow-3xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-[11px] border-collapse table-fixed min-w-[750px]">
+              <thead>
+                <tr className="border-b border-slate-200 text-slate-500 bg-slate-50 font-extrabold uppercase text-[9px] tracking-wider">
+                  <th className="py-2.5 px-3" style={{ width: '60px' }}>Rank</th>
+                  <th className="py-2.5 px-3" style={{ width: '110px' }}>ID Outlet</th>
+                  <th className="py-2.5 px-3" style={{ width: '280px' }}>Nama Toko / Outlet</th>
+                  <th className="py-2.5 px-3 text-right" style={{ width: '130px' }}>Total Net Sales</th>
+                  <th className="py-2.5 px-3 text-center" style={{ width: '90px' }}>Share %</th>
+                  <th className="py-2.5 px-3 text-center" style={{ width: '110px' }}>Kumulatif %</th>
+                  <th className="py-2.5 px-3 text-center" style={{ width: '130px' }}>Status Klasifikasi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {paretoData.list.slice(0, showAllOutlets ? undefined : 6).map((item, idx) => {
+                  return (
+                    <tr key={item.customerId} className={`hover:bg-slate-50/60 transition-all font-semibold ${item.isPareto ? 'bg-amber-50/15' : ''}`}>
+                      <td className="py-2.5 px-3">
+                        <span className={`font-mono text-xs w-6 text-center block rounded font-bold ${item.isPareto ? 'bg-amber-150 text-amber-800' : 'bg-slate-100 text-slate-500'}`}>
+                          #{idx + 1}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-505 font-mono">
+                        {item.customerId}
+                      </td>
+                      <td className="py-2.5 px-3 font-bold text-slate-900 truncate" title={item.name}>
+                        <div className="flex items-center gap-1.5">
+                          {item.isPareto && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 animate-pulse"></span>}
+                          <span className="truncate">{item.name}</span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono text-[11px] text-slate-950 font-bold">
+                        {formatCurrency(item.totalSales)}
+                      </td>
+                      <td className="py-2.5 px-3 text-center text-slate-900 font-mono">
+                        {item.percentage.toFixed(1)}%
+                      </td>
+                      <td className="py-2.5 px-3 text-center font-mono text-slate-500">
+                        {item.cumulativePercentage.toFixed(1)}%
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[8.5px] font-black uppercase text-center tracking-wide inline-block leading-none ${
+                          item.isPareto 
+                            ? 'bg-amber-50 text-amber-700 border border-amber-100' 
+                            : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                        }`}>
+                          {item.isPareto ? '🔥 PARETO CRITICAL' : 'LONG TAIL'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {paretoData.list.length > 6 && (
+            <div className="p-3 bg-slate-50 border-t border-slate-150 flex items-center justify-between text-[11px]">
+              <span className="text-slate-400 font-bold italic">
+                *Menampilkan {showAllOutlets ? paretoData.list.length : 6} dari total {paretoData.list.length} outlet terdaftar.
+              </span>
+              <button
+                onClick={() => setShowAllOutlets(!showAllOutlets)}
+                className="px-3 py-1 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg font-extrabold text-[10px] text-indigo-700 uppercase transition-all shadow-3xs cursor-pointer"
+              >
+                {showAllOutlets ? 'Tampilkan Lebih Sedikit' : 'Tampilkan Seluruh Outlet'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
