@@ -752,97 +752,111 @@ export default function ModelingFeature({ records }: ModelingFeatureProps) {
 
   const overallMonths = useMemo(() => calculateMonthlyTrends(records), [records]);
 
+  // Real-time Data Diagnostics calculation to replace static consulting templates
+  const dataDiagnostics = useMemo(() => {
+    if (!records || records.length === 0) return null;
+
+    let minSales = Infinity;
+    let maxSales = -Infinity;
+    let peakMonthName = '';
+    let valleyMonthName = '';
+    
+    // Calculate totals per month
+    const monthlySum: Record<string, number> = {};
+    records.forEach(r => {
+      if (r.date) {
+        const parts = r.date.split('-');
+        if (parts.length === 3) {
+          const monthsNameMap = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          const mIdx = parseInt(parts[1], 10) - 1;
+          const yearShort = parts[0].substring(2);
+          if (mIdx >= 0 && mIdx < 12) {
+            const mStr = `${monthsNameMap[mIdx]} '${yearShort}`;
+            monthlySum[mStr] = (monthlySum[mStr] || 0) + (r.ttl_sales || 0);
+          }
+        }
+      }
+    });
+
+    Object.entries(monthlySum).forEach(([m, s]) => {
+      if (s > maxSales) {
+        maxSales = s;
+        peakMonthName = m;
+      }
+      if (s < minSales) {
+        minSales = s;
+        valleyMonthName = m;
+      }
+    });
+
+    const uniqueOutlets = new Set(records.map(r => (r.customer_id || 'GUEST').trim().toUpperCase())).size;
+    const uniqueBrands = new Set(records.map(r => r.group_name || 'Uncategorized')).size;
+    const totalTransactions = records.length;
+    const totalSalesVolume = records.reduce((sum, r) => sum + (r.ttl_sales || 0), 0);
+
+    return {
+      peakMonth: peakMonthName,
+      peakSales: maxSales === -Infinity ? 0 : maxSales,
+      valleyMonth: valleyMonthName,
+      valleySales: minSales === Infinity ? 0 : minSales,
+      uniqueOutlets,
+      uniqueBrands,
+      totalTransactions,
+      totalSalesVolume
+    };
+  }, [records]);
+
   const handleDownloadReport = () => {
     const brandLabel = selectedBrand === 'ALL' ? 'ALL BRANDS (KONSOLIDASI)' : selectedBrand;
     const dateStr = new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
     
-    let reportText = `# LAPORAN ADVISORY STRATEGIS: BUSINESS REVIEW PORTFOLIO & PROYEKSI FORECASTING
-**Dipersiapkan oleh:** ReportKuy Consult • Strategic Advisory Services
+    let reportText = `# LAPORAN ANALISIS DIAGNOSTIK RIIL DATASET PENCOCOKAN PENJUALAN ROHTO
+**Sasaran Analisis:** Kategori ${brandLabel}
 **Tanggal Pelaporan:** ${dateStr}
-**Sasaran Analisis:** Terfokus Pada Kategori ${brandLabel}
-**Klasifikasi Dokumen:** Sangat Rahasia / Properti Direksi (Board of Directors)
+**Total Transaksi Ledger:** ${dataDiagnostics?.totalTransactions || 0}
+**Total Pendapatan Terakumulasi:** ${formatCurrency(dataDiagnostics?.totalSalesVolume || 0)}
 
 ---
 
-## EXECUTIVE SUMMARY
-Penyusunan Executive Briefing ini dirancang menggunakan metodologi standar industri konsultasi papan atas untuk mengevaluasi secara komprehensif performa penjualan historis, elastisitas target program cashback, efisiensi portofolio, serta skenario taktis jangka pendek-menengah bagi brand di bawah portofolio Rohto.
-
-Pilar utama temuan kami adalah adanya anomali musiman musykil yang kami sebut "The CBP Surge Effect", di mana volume penjualan menumpuk drastis pada bulan tutup program cashback (April, Agustus, Desember) akibat perilaku rasional outlet yang fokus untuk menutup target cashback maupun skema white bonusnya demi memaksimalkan pengembalian margin finansial mereka.
-
----
-
-## SEGMEN 01: PENYELIDIKAN PERILAKU OUTLET (THE "SURGE" EFFECT)
-Analisis mendalam mengenai perilaku pembelanjaan gerai/outlet menyimpulkan korelasi frekuensi repeat order yang masif menjelang akhir siklus 4-bulanan. Pembatasan pasokan dan estimasi logistik harus diselaraskan untuk mengantisipasi gejolak ini.
-
-*   **Rata-rata Pendapatan Bulan Normal (Luar Siklus Tutup):** ${formatCurrency(modelingResults?.cbSurgeAnalysis?.avgNormalRevenue || 7850000000)}
-*   **Rata-rata Pendapatan Bulan Penutupan CBP:** ${formatCurrency(modelingResults?.cbSurgeAnalysis?.avgClosingRevenue || 9120000000)}
-*   **Learned Multiplier (Efek Pengali Lonjakan):** +${((modelingResults?.cbSurgeAnalysis?.multiplier - 1) * 100 || 0).toFixed(1)}% volume penjualan tambahan terdeteksi pada fase akhir siklus.
-
-**Rekomendasi Taktis:**
-Optimalkan alokasi inventory minimal 21 hari sebelum masa tutup program guna meredam "lost sales" akibat keterbatasan armada logistik di bulan sela.
+## 1. STRUKTUR DAN STATUS KESEHATAN DATASET
+*   **Total Kategori Brand Terdeteksi:** ${dataDiagnostics?.uniqueBrands || 0} brand
+*   **Total Kontributor Outlet Aktif:** ${dataDiagnostics?.uniqueOutlets || 0} apotek/gerai unik
+*   **Bulan Penjualan Puncak (Peak):** ${dataDiagnostics?.peakMonth || 'N/A'} dengan total omset ${formatCurrency(dataDiagnostics?.peakSales || 0)}
+*   **Bulan Penjualan Terendah (Valley):** ${dataDiagnostics?.valleyMonth || 'N/A'} dengan total omset ${formatCurrency(dataDiagnostics?.valleySales || 0)}
+*   **Volatilitas Keseluruhan (Coefficient of Variation):** ${(coeffOfVariation * 100).toFixed(1)}%
 
 ---
 
-## SEGMEN 02: AKURASI REGRESI MELALUI DATA HISTORIS MBS 2025 (17-BULAN TRAINING SET)
-Untuk memperoleh hasil peramalan yang memiliki presisi dan koefisien determinasi tertinggi, pemodelan ini telah meluas secara otomatis dengan mengintegrasikan 12 bulan penuh data historis dari tahun MBS 2025.
-
-Penyertaan data historis masa lalu ini memperluas dataset latih model peramalan menjadi 17 bulan berkelanjutan, sehingga regresi linier terkecil kuadrat (LSQ) dan rata-rata berjalan (moving average) mampu mendeteksi profil musiman dengan margin error terkecil.
-
-*   **Penyelarasan Model:** Data target dan realisasi penjualan MBS 2025 dipetakan proporsional terhadap kontribusi brand terpilih Anda.
-*   **Akselerasi Prediksi:** Model regresi secara otomatis memperhitungkan tren 17 bulan, bukan sekadar data jangka pendek 2026, memitigasi anomali jangka pendek.
+## 2. DETEKSI ANOMALI PROGRAM CASHBACK (CBP SURGE EFFECT)
+Model diagnostik membandingkan rata-rata pembelanjaan dealer di bulan penutupan regular CBP (April, Agustus, Desember) vs bulan sela lainnya:
+*   **Rata-rata Omset Bulan Normal (Luar Siklus Tutup):** ${formatCurrency(modelingResults?.cbSurgeAnalysis?.avgNormalRevenue || 0)}
+*   **Rata-rata Omset Bulan Penutupan CBP:** ${formatCurrency(modelingResults?.cbSurgeAnalysis?.avgClosingRevenue || 0)}
+*   **Faktor Multiplier Lonjakan Riil:** +${((modelingResults?.cbSurgeAnalysis?.multiplier - 1) * 100).toFixed(1)}%
+*   **Status Deteksi Musikaltas:** ${modelingResults?.cbSurgeAnalysis?.status}
 
 ---
 
-## SEGMEN 03: PORTOFOLIO BRAND (GROWTH-SHARE BCG MATRIX)
-Pengukuran Compound Annual Growth Rate (CAGR) historis dipadukan margin kontribusi pendapatan bersih menempatkan brand strategis Anda ke dalam 4 kuadran pengalokasian modal:
+## 3. MATRIKS TREN KINERJA KATEGORI BRAND AKTUAL
+Berikut adalah klasifikasi pertumbuhan majemuk (CAGR) historis dari seluruh brand yang terdaftar berdasarkan catatan transaksi riil:
 
+| Kategori Brand | Total Net Sales | Volume Pangsa Pasar % | CAGR % | Kuadran Portofolio |
+| :--- | :---: | :---: | :---: | :---: |
 `;
 
-    if (brandAnalysis && brandAnalysis.length > 0) {
-      reportText += `### Klasifikasi Aktual Portofolio Brand Anda:\n`;
-      reportText += `| Nama Kategori Brand | Total Net Sales | Volume (Unit) | Kontribusi % | Estimasi CAGR % | Kuadran BCG | Rekomendasi Utama |\n`;
-      reportText += `| :--- | :---: | :---: | :---: | :---: | :---: | :--- |\n`;
-      brandAnalysis.forEach((brand) => {
-        reportText += `| ${brand.brandName} | ${formatCurrency(brand.totalRevenue).replace(',00', '')} | ${brand.units.toLocaleString()} | ${(brand.contribution * 100).toFixed(1)}% | ${(brand.cagr * 100).toFixed(1)}% | ${brand.bcgStatus} | ${brand.recommendation} |\n`;
-      });
-      reportText += `\n`;
-    } else {
-      reportText += `*Data portofolio brand kosong atau belum dianalisis.*\n\n`;
-    }
+    brandAnalysis.forEach(b => {
+      reportText += `| ${b.brandName} | ${formatCurrency(b.totalRevenue)} | ${(b.contribution * 100).toFixed(1)}% | ${(b.cagr * 100).toFixed(1)}% | ${b.bcgStatus} |\n`;
+    });
 
-    reportText += `---
-
-## SEGMEN 04: STRATEGIC IMPLEMENTATION PLAYBOOK (MECE FRAMEWORK)
-Guna mengeksekusi optimalisasi program cashback tanpa kebocoran margin, ReportKuy merekomendasikan tiga pilar yang berstruktur Mutually Exclusive & Collectively Exhaustive (MECE):
-
-### PILAR I: DYNAMIC CREDIT TERMS (Finansial)
-*   **Aksi:** Menggandakan Term of Payment (TOP) khusus untuk outlet loyal berkinerja tinggi 2 minggu sebelum siklus CBP ditutup.
-*   **Dampak:** Melonggarkan kendala likuiditas operasional ritel agar penyerapan stok (stuffing) akhir tahun/kuartal dapat dipacu secara aman.
-
-### PILAR II: PREDICTIVE ALLOCATION (Operasional)
-*   **Aksi:** Menggeser prioritas armada logistik dan dispatching center ke distributor star-contributor di Bulan ke-4 siklus.
-*   **Dampak:** Jadwal rute logistik preventif menghidarkan kehabisan pasokan saat pesanan ritel memuncak serentak.
-
-### PILAR III: SELL-OUT ACTIVATION (Aktivasi Pasar)
-*   **Aksi:** Menggandakan staffing armada SPG lapangan & sales force pada bulan ke-2 dan ke-3 di sub-distributor utama wilayah prioritas.
-*   **Dampak:** Mempercepat ritme aliran produk keluar dari gerai (sell-out) sebelum kapasitas gudang penuh untuk diisi sisa target akhir periode program.
-
+    reportText += `
 ---
-
-## ESTIMASI METRIKS KELAYAKAN PROYEKSI
-Melalui kombinasi pilar strategi di atas, pemodelan kami mengestimasikan:
-1.  **Pengurangan Lost Orders:** Potensi kerugian akibat stockout menurun hingga **18.5%**.
-2.  **Peningkatan Retensi Keaktifan Outlet:** Loyalitas & ketersediaan produk di toko meningkat **12.2%** pada paruh pertama pelaksanaan 2026.
-
----
-*(c) 2026 REPORTKUY CONSULT • STRATEGIC ADVISORY SERVICES. ALL RIGHTS RESERVED.*
+Laporan ini dihasilkan secara dinamis berdasarkan data aktual ledger Anda. Hak Cipta Sistem Intelijen MBS 2026.
 `;
 
     const blob = new Blob([reportText], { type: 'text/markdown;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Laporan_Business_Review_${selectedBrand.replace(/\s+/g, '_')}_ReportKuy.md`);
+    link.setAttribute('download', `Laporan_Diagnostik_Riil_${selectedBrand.replace(/\s+/g, '_')}_ReportKuy.md`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -885,38 +899,20 @@ Melalui kombinasi pilar strategi di atas, pemodelan kami mengestimasikan:
   return (
     <div className="space-y-6">
       
-      {/* Premium Tab Selector to Toggle between Dashboard and Management Consulting Slide Deck */}
-      <div className="bg-slate-150/70 p-1 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1">
-          <button
-            id="tab_forecasting_btn"
-            onClick={() => setActiveTabName('forecasting')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-tight transition-all duration-200 ${
-              activeTabName === 'forecasting'
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <TrendingUp className="w-4 h-4 text-indigo-600 font-black" />
-            <span>Forecasting & Simulasi</span>
-          </button>
-          
-          <button
-            id="tab_deck_btn"
-            onClick={() => setActiveTabName('consulting_deck')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-tight transition-all duration-200 ${
-              activeTabName === 'consulting_deck'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <Layers className={`w-4 h-4 ${activeTabName === 'consulting_deck' ? 'text-amber-400' : 'text-slate-400'}`} />
-            <span>Business Review</span>
-          </button>
+      {/* Forecasting Control Header */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-3xs">
+        <div className="text-left space-y-1">
+          <span className="text-[10px] uppercase font-mono tracking-widest text-indigo-600 font-extrabold flex items-center gap-1">
+            <TrendingUp className="w-3.5 h-3.5" />
+            Sistem Peramalan & Simulasi Penjualan
+          </span>
+          <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">
+            Proyeksi Tren & Simulasi Target Bulanan
+          </h3>
         </div>
 
-        <div className="flex items-center gap-2 px-2 flex-wrap sm:flex-nowrap">
-          <div className="flex items-center gap-1.5 bg-white border border-slate-200 shadow-3xs rounded-xl px-2.5 py-1.5">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap font-semibold">
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 shadow-3xs rounded-xl px-3 py-2">
             <Store className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
             <span className="text-[9.5px] font-black uppercase text-slate-500 shrink-0 font-sans tracking-tight">Kategori Brand:</span>
             <select
@@ -939,18 +935,10 @@ Melalui kombinasi pilar strategi di atas, pemodelan kami mengestimasikan:
               <option value="SUNPLAY">SUNPLAY</option>
             </select>
           </div>
-
-          {activeTabName === 'consulting_deck' && (
-            <div className="flex items-center gap-1.5 px-1 shrink-0">
-              <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
-              <span className="text-[10px] font-mono font-black text-slate-800 uppercase">ReportKuy Consult Active</span>
-            </div>
-          )}
         </div>
       </div>
 
-      {activeTabName === 'forecasting' ? (
-        <div className="space-y-6">
+      <div className="space-y-6">
           {/* Primary header widget layout */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             
@@ -1344,365 +1332,6 @@ Melalui kombinasi pilar strategi di atas, pemodelan kami mengestimasikan:
             </div>
           </div>
         </div>
-      ) : (
-        /* ==================== HIGH-END LIGHTWEIGHT REPORTKUY CONSULT PRESENTATION SLIDE DECK ==================== */
-        <div className="bg-[#fcfdfd] text-slate-850 rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-6 shadow-xl relative overflow-hidden transition-all duration-300">
-          
-          {/* Deck background styling accents to mimic executive slides */}
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-600 via-indigo-600 to-indigo-800"></div>
-          <div className="absolute top-10 right-10 w-96 h-96 bg-indigo-50/40 rounded-full blur-3xl pointer-events-none"></div>
-          
-          {/* Deck Metadata Header */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-slate-200 pb-4 gap-4">
-            <div className="text-left">
-              <span className="text-[10px] uppercase font-mono tracking-widest text-amber-700 font-extrabold">
-                MBS BOARD PRESENTATION MATERIAL & BULLSEYE DECK
-              </span>
-              <h3 className="text-lg font-black text-slate-900 mt-0.5 uppercase tracking-tight">
-                PROPOSAL OPTIMALISASI PORTOFOLIO & PROGRAM CASHBACK
-              </h3>
-            </div>
-            <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap shrink-0">
-              <button
-                id="download_report_btn"
-                onClick={handleDownloadReport}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-[11px] font-black uppercase tracking-tight rounded-xl transition-all shadow-sm shrink-0 border border-indigo-700"
-                title="Unduh Laporan Advisory Lengkap (.md)"
-              >
-                <FileDown className="w-3.5 h-3.5 text-amber-300" />
-                <span>Unduh Laporan (MD)</span>
-              </button>
-              <div className="text-right text-[10px] font-mono text-slate-500 bg-white px-3 py-2 rounded-xl border border-slate-200 shrink-0 shadow-3xs">
-                <span className="text-slate-700 font-bold">Draft Rahasia | ReportKuy Consult</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Slide Navigator Dashboard */}
-          <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-2.5 rounded-2xl border border-slate-200 shadow-3xs">
-            <div className="flex flex-wrap items-center gap-1.5">
-              {[
-                { idx: 0, label: '01. Lonjakan CBP' },
-                { idx: 1, label: '02. Matriks Brand' },
-                { idx: 2, label: '03. Playbook Strategis' }
-              ].map((btn) => (
-                <button
-                  key={btn.idx}
-                  id={`slide_btn_${btn.idx}`}
-                  onClick={() => setActiveSlideIndex(btn.idx)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${
-                    activeSlideIndex === btn.idx
-                      ? 'bg-slate-900 text-white font-black shadow-xs-dark border border-slate-950'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                  }`}
-                >
-                  {btn.idx === activeSlideIndex ? `● ${btn.label}` : btn.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                id="prev_slide_btn"
-                disabled={activeSlideIndex === 0}
-                onClick={() => setActiveSlideIndex(prev => Math.max(0, prev - 1))}
-                className="p-1 px-2.5 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white text-slate-700 border border-slate-250 rounded-lg text-xs font-black transition-all shadow-3xs"
-              >
-                Prev Slide
-              </button>
-              <span className="text-xs font-mono font-black text-slate-800">
-                PAGE {activeSlideIndex + 1} OF 3
-              </span>
-              <button
-                id="next_slide_btn"
-                disabled={activeSlideIndex === 2}
-                onClick={() => setActiveSlideIndex(prev => Math.min(2, prev + 1))}
-                className="p-1 px-2.5 bg-[#0284c7] hover:bg-[#0369a1] disabled:opacity-40 disabled:hover:bg-[#0284c7] text-white rounded-lg text-xs font-black transition-all shadow-3xs"
-              >
-                Next Slide
-              </button>
-            </div>
-          </div>
-
-          {/* ACTIVE SLIDE VIEWER CONTAINER */}
-          <div className="min-h-[440px] flex flex-col justify-between text-left space-y-6">
-            
-            {/* ------------------- SLIDE 1: SURGE CASHBACK CLOSE ANALYSIS ------------------- */}
-            {activeSlideIndex === 0 && (
-              <div className="space-y-4 animate-fadeIn">
-                <div className="space-y-1.5">
-                  <span className="text-xs font-bold uppercase text-amber-700 tracking-wider">
-                    SLIDE 01 / 03 | PENYELIDIKAN PERILAKU OUTLET (THE "SURGE" EFFECT)
-                  </span>
-                  <h4 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
-                    "Inventory Stuffing" Akhir Siklus: Lompatan Volume Transaksi Sebagai Taktik Menutup Target Cashback dan White Bonus
-                  </h4>
-                  <div className="h-0.5 bg-slate-200 w-full mt-2"></div>
-                </div>
-
-                {/* Elegant McKinsey Takeaway Block - (Something consulting firms always use) */}
-                {(() => {
-                  const takeaway = getExecutiveTakeawayForBrand(selectedBrand);
-                  return (
-                    <div className="bg-amber-50/60 border-l-4 border-amber-600 p-3.5 rounded-r-xl space-y-1 my-2 shadow-3xs">
-                      <div className="flex items-center gap-1.5">
-                        <Sparkles className="w-4 h-4 text-amber-700 shrink-0" />
-                        <span className="text-[10px] font-black uppercase text-amber-800 tracking-wider font-mono">
-                          ReportKuy Consult - Executive Takeaway ("So What?"): {takeaway.title}
-                        </span>
-                      </div>
-                      <p className="text-[11.5px] text-slate-800 font-semibold leading-relaxed">
-                        <strong>Rekomendasi Utama:</strong> {takeaway.strategy}
-                      </p>
-                    </div>
-                  );
-                })()}
-
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-                  {/* Left explanation narrative column (7 cols) */}
-                  <div className="lg:col-span-7 space-y-4">
-                    <p className="text-slate-600 text-xs sm:text-[13px] leading-relaxed">
-                      Sesuai analisis behavioral, outlet di program CBP (Cashback Program) memperlihatkan korelasi pembelian berulang yang masif menjelang <strong className="text-amber-700 font-extrabold">akhir siklus 4-bulanan (April, Agustus, Desember)</strong>. Pembelian didorong keinginan kuat untuk murni menutup target cashback serta mengamankan perolehan insentif white bonus mereka, sehingga memicu transaksi "spekulatif".
-                    </p>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="bg-white p-4 border border-slate-200 shadow-3xs rounded-2xl space-y-1">
-                        <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wide">RABAT PENDAPATAN NORMAL</span>
-                        <div className="text-lg font-mono font-black text-indigo-700">
-                          {formatCurrency(modelingResults.cbSurgeAnalysis.avgNormalRevenue || 7850000000)}
-                        </div>
-                        <p className="text-[9.5px] text-slate-500 font-semibold">Rata-rata penjualan bulanan reguler (luar siklus tutup)</p>
-                      </div>
-
-                      <div className="bg-white p-4 border border-amber-300 shadow-3xs rounded-2xl space-y-1 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 bg-amber-100 text-amber-800 px-2 py-0.5 uppercase text-[8px] font-black tracking-widest rounded-bl-xl border-l border-b border-amber-200">SIKLUS TUTUP</div>
-                        <span className="text-[10px] text-amber-700 font-extrabold uppercase tracking-wide">RATA-RATA AKHIR SIKLUS</span>
-                        <div className="text-lg font-mono font-black text-amber-700">
-                          {formatCurrency(modelingResults.cbSurgeAnalysis.avgClosingRevenue || 9120000000)}
-                        </div>
-                        <p className="text-[9.5px] text-amber-600 font-semibold">Transaksi melonjak di akhir program 4-bulanan</p>
-                      </div>
-                    </div>
-
-                    <div className="bg-indigo-50 p-4 border border-indigo-100 rounded-2xl space-y-2">
-                      <span className="text-[10px] text-indigo-800 font-black uppercase tracking-wider block">LEARNED MULTIPLIER (FAKTOR SURGE)</span>
-                      <p className="text-[11px] text-indigo-950 leading-relaxed font-semibold">
-                        Data riwayat penjualan teridentifikasi memiliki faktor pengali lonjakan rata-rata sebesar <strong className="text-amber-700 font-black">+{((modelingResults.cbSurgeAnalysis.multiplier - 1) * 100).toFixed(0)}%</strong> pada bulan penutupan. Pola ini kami adopsi secara instan ke dalam model simulasi peramalan elastisitas stok bulanan guna menjamin mitigasi "distributor out-of-stock".
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Right visual indicator card (5 cols) */}
-                  <div className="lg:col-span-5 bg-slate-50/50 p-4 border border-slate-200 shadow-3xs rounded-3xl flex flex-col justify-between space-y-4">
-                    <div>
-                      <span className="text-[11px] text-amber-700 font-bold tracking-widest uppercase block mb-1">
-                        TIMELINE DISTRIBUSI PROGRAM
-                      </span>
-                      <h5 className="text-xs font-black text-slate-800 uppercase tracking-tight">MANAJEMEN RISIKO SIKLUS</h5>
-                    </div>
-
-                    <div className="space-y-3">
-                      {[
-                        { title: 'Bulan 1-2 (Normal Run)', desc: 'Optimasi stok standar; outlet menipiskan persediaan.', icon: 'bg-slate-200 text-slate-700 border border-slate-300' },
-                        { title: 'Bulan 3 (Pre-Closing)', desc: 'Pengumuman progress target; sales force melobi outlet prioritas.', icon: 'bg-indigo-100 text-indigo-800 border border-indigo-200' },
-                        { title: 'Bulan 4 (Closing Month)', desc: 'Lonjakan besar 20-40% di minggu terakhir guna menutup target cashback dan white bonus.', icon: 'bg-amber-600 text-white border border-amber-500' },
-                        { title: 'Bulan 5 (Hangover Period)', desc: 'Penjualan merosot karena outlet jenuh. Kurangi target logistik.', icon: 'bg-rose-100 text-rose-800 border border-rose-200' }
-                      ].map((step, i) => (
-                        <div key={i} className="flex items-start gap-2.5">
-                          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] shrink-0 font-bold mt-0.5 ${step.icon}`}>
-                            {i + 1}
-                          </span>
-                          <div>
-                            <p className="text-xs font-bold text-slate-800 leading-none">{step.title}</p>
-                            <p className="text-[10px] text-slate-500 font-semibold leading-normal mt-0.5">{step.desc}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="p-3 bg-white border border-slate-200 rounded-xl text-[10px] text-slate-600 leading-normal font-semibold shadow-3xs">
-                      📋 <strong className="text-slate-800 font-black">"Actionable Insight":</strong> Manfaatkan promosi silang (cross-selling) di sub-brand ber-CAGR rendah untuk mengisi sisa target outlet di Bulan ke-4.
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-            {/* ------------------- SLIDE 2: BRAND GROWTH TREND BCG MATRIX ------------------- */}
-            {activeSlideIndex === 1 && (
-              <div className="space-y-4 animate-fadeIn">
-                <div className="space-y-1.5">
-                  <span className="text-xs font-bold uppercase text-amber-700 tracking-wider">
-                    SLIDE 02 / 03 | PORTOFOLIO BRAND (GROWTH-SHARE BCG PARADIGM)
-                  </span>
-                  <h4 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
-                    Analisis Tren Pertumbuhan (CAGR) Per-Brand & Matriks Strategi Alokasi Kapital
-                  </h4>
-                  <div className="h-0.5 bg-slate-200 w-full mt-2"></div>
-                </div>
-
-                {/* Elegant McKinsey Takeaway Block - (Something consulting firms always use) */}
-                <div className="bg-emerald-50/60 border-l-4 border-emerald-600 p-3.5 rounded-r-xl space-y-1 my-2 shadow-3xs">
-                  <div className="flex items-center gap-1.5">
-                    <Award className="w-4 h-4 text-emerald-700 shrink-0" />
-                    <span className="text-[10px] font-black uppercase text-emerald-800 tracking-wider font-mono">ReportKuy Consult - BCG Matrix Strategic Framework</span>
-                  </div>
-                  <p className="text-[11.5px] text-slate-800 font-semibold leading-relaxed">
-                    <strong>Alokasi Kapital:</strong> Alokasikan <strong className="text-emerald-700">60% instrumen promosi & logistik</strong> secara agresif ke brand berstatus <strong>STARS</strong> (seperti Skin Aqua/Hada Labo) untuk menangkap margin CAGR tinggi. Gunakan cash cow stabil (seperti Acnes/Selsun) sebagai pendana program penetrasi brand question mark yang belum stabil.
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {[
-                      { title: 'STARS (⭐️)', color: 'border-emerald-300 bg-emerald-50/60 text-emerald-800', desc: 'CAGR Tinggi, Kontribusi Besar. Dorong modal promosi tanpa ragu.', list: 'Kategori: Brand Utama kontributor >15% & CAGR >5%' },
-                      { title: 'CASH COWS (🐄)', color: 'border-blue-300 bg-blue-50/60 text-blue-800', desc: 'CAGR Rendah, Kontribusi Tinggi. Panen kas stabil untuk modal brand lain.', list: 'Kategori: Brand Pendapatan Inti' },
-                      { title: 'QUESTION MARKS (❓)', color: 'border-amber-300 bg-amber-50/60 text-amber-800', desc: 'CAGR Tinggi, Kontribusi Rendah. Butuh aktivasi taktis untuk scale.', list: 'Kategori: Brand Spesifik / Niche' },
-                      { title: 'DOGS (🐕)', color: 'border-slate-200 bg-slate-50 text-slate-500', desc: 'CAGR Rendah, Kontribusi Rendah. Lakukan eliminasi SKU / efisiensi rute.', list: 'Kategori: SKU berkinerja rendah' }
-                    ].map((card, i) => (
-                      <div key={i} className={`p-3.5 border rounded-2xl text-left space-y-1.5 ${card.color} shadow-3xs`}>
-                        <span className="text-xs font-black uppercase block tracking-wider">{card.title}</span>
-                        <p className="text-[10px] text-slate-800 leading-normal font-semibold">{card.desc}</p>
-                        <p className="text-[8.5px] text-slate-400 font-bold uppercase tracking-wide pt-1 border-t border-slate-150">{card.list}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Render real live dynamic brand mapping table loaded from the database records! */}
-                  <div className="bg-white border border-slate-200 shadow-3xs rounded-2xl p-4 space-y-3">
-                    <span className="text-[10px] text-slate-505 font-extrabold uppercase tracking-widest block">MATRIKS TREN PORTFOLIO BRAND AKTUAL</span>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-[10px] border-collapse table-fixed min-w-[650px]">
-                        <thead>
-                          <tr className="border-b border-slate-200 text-slate-500 bg-slate-50 font-extrabold uppercase text-[8.5px] tracking-wider">
-                            <th className="py-1.5 px-2" style={{ width: '140px' }}>Nama Brand</th>
-                            <th className="py-1.5 px-2 text-right" style={{ width: '110px' }}>Total Net Sales</th>
-                            <th className="py-1.5 px-2 text-center" style={{ width: '110px' }}>Kontribusi Share %</th>
-                            <th className="py-1.5 px-2 text-center" style={{ width: '90px' }}>Growth (CAGR)</th>
-                            <th className="py-1.5 px-2 text-center" style={{ width: '90px' }}>Status BCG</th>
-                            <th className="py-1.5 px-2">Key Recommendation</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-150 text-slate-700">
-                          {brandAnalysis.map((brand, idx) => (
-                            <tr key={idx} className="hover:bg-slate-50/60 transition-all font-semibold">
-                              <td className="py-1.5 px-2 font-bold text-slate-900 truncate">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
-                                  <span className="truncate">{brand.brandName}</span>
-                                </div>
-                              </td>
-                              <td className="py-1.5 px-2 text-right font-mono text-[9.5px]">
-                                {formatCurrency(brand.totalRevenue)}
-                              </td>
-                              <td className="py-1.5 px-2 text-center text-slate-900 font-mono text-[9.5px]">
-                                {(brand.contribution * 100).toFixed(1)}%
-                              </td>
-                              <td className={`py-1.5 px-2 text-center font-mono text-[9.5px] ${(brand.cagr > 0 ? 'text-emerald-700' : 'text-rose-700')}`}>
-                                {brand.cagr > 0 ? `+${(brand.cagr * 100).toFixed(1)}%` : `${(brand.cagr * 100).toFixed(1)}%`}
-                              </td>
-                              <td className="py-1.5 px-2 text-center">
-                                <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase text-center tracking-wide inline-block leading-none ${
-                                  brand.bcgStatus === 'Star' 
-                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
-                                    : brand.bcgStatus === 'Cash Cow'
-                                    ? 'bg-blue-50 text-blue-700 border border-blue-100'
-                                    : brand.bcgStatus === 'Question Mark'
-                                    ? 'bg-amber-50 text-amber-700 border border-amber-100'
-                                    : 'bg-slate-50 text-slate-500 border border-slate-200'
-                                  }`}>
-                                  {brand.bcgStatus}
-                                </span>
-                              </td>
-                              <td className="py-1.5 px-2 text-slate-500 text-[9.5px] leading-relaxed break-words">
-                                {brand.recommendation}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {brandAnalysis.length > 0 && (
-                      <div className="text-[9px] text-slate-400 text-right font-bold italic">
-                        *Menampilkan seluruh {brandAnalysis.length} kategori brand terdaftar di sistem secara komprehensif.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ------------------- SLIDE 3: STRATEGIC PLAYBOOK ------------------- */}
-            {activeSlideIndex === 2 && (
-              <div className="space-y-4 animate-fadeIn">
-                <div className="space-y-1.5">
-                  <span className="text-xs font-bold uppercase text-amber-700 tracking-wider">
-                    SLIDE 03 / 03 | STRATEGIC IMPLEMENTATION PLAYBOOK FOR RETAILERS
-                  </span>
-                  <h4 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
-                    Master Playbook: Menyelaraskan Tata Kelola Distribusi, Likuiditas Kanal, & Daya Tarik Sell-Out Portofolio Rohto
-                  </h4>
-                  <div className="h-0.5 bg-slate-200 w-full mt-2"></div>
-                </div>
-
-                {/* Elegant McKinsey Takeaway Block - (Something consulting firms always use) */}
-                <div className="bg-slate-50 border-l-4 border-slate-800 p-3.5 rounded-r-xl space-y-1 my-2 shadow-3xs">
-                  <div className="flex items-center gap-1.5">
-                    <Sliders className="w-4 h-4 text-slate-850 shrink-0" />
-                    <span className="text-[10px] font-black uppercase text-slate-900 tracking-wider font-mono">ReportKuy Consult - MECE Strategic Playbook</span>
-                  </div>
-                  <p className="text-[11.5px] text-slate-800 font-semibold leading-relaxed">
-                    <strong>Pilar Strategis MECE:</strong> Kerangka kerja di bawah dirancang secara komprehensif untuk melonggarkan hambatan likuiditas outlet ritel (Finansial), mengoptimalkan fleksibilitas rantai pasok (Operasional), serta memacu laju putaran produk di gerai (Komersial) guna mengamankan target cashback & white bonus secara sinkron.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 text-slate-700">
-                  <div className="bg-white p-5 border border-slate-200 shadow-3xs rounded-2xl space-y-3 relative overflow-hidden">
-                    <span className="absolute top-0 right-0 w-16 h-16 bg-indigo-500/5 rounded-full pointer-events-none"></span>
-                    <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700 font-extrabold text-xs">I</div>
-                    <h5 className="text-sm font-black text-slate-900 uppercase tracking-tight">I. LIQUIDITY FACILITATION & CANAL AGILITY</h5>
-                    <p className="text-[11.5px] leading-relaxed font-semibold text-slate-600">
-                      Menyelaraskan plafon kredit distributor (Flexible Credit Limits) serta memperpanjang <strong className="text-slate-900">Term of Payment (TOP)</strong> secara dinamis sebesar +15 hari bagi gerai top-performer pada minggu ke-2 sebelum penutupan siklus program. Intervensi ini mereduksi hambatan arus kas ritel secara drastis, memungkinkan penyerapan volume stok puncak secara mulus tanpa terganjal kendala modal kerja.
-                    </p>
-                  </div>
-
-                  <div className="bg-white p-5 border border-slate-200 shadow-3xs rounded-2xl space-y-3 relative overflow-hidden">
-                    <span className="absolute top-0 right-0 w-16 h-16 bg-amber-500/5 rounded-full pointer-events-none"></span>
-                    <div className="w-8 h-8 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 font-extrabold text-xs">II</div>
-                    <h5 className="text-sm font-black text-slate-900 uppercase tracking-tight">II. PREDICTIVE ALLOCATION & SUPPLY CHAIN</h5>
-                    <p className="text-[11.5px] leading-relaxed font-semibold text-slate-600">
-                      Menerapkan restrukturisasi prioritas logistik berbasis <strong className="text-slate-900">Lead-Indicator Forecasting</strong>. Penjadwalan ulang armada pengiriman dipusatkan ke wilayah dengan densitas outlet kontributor tinggi semenjak Bulan ke-4 guna mengantisipasi penimbunan stok secara masif. Langkah preventif ini memitigasi risiko demurrage serta potensi kendala "out-of-stock" distributor.
-                    </p>
-                  </div>
-
-                  <div className="bg-white p-5 border border-slate-200 shadow-3xs rounded-2xl space-y-3 relative overflow-hidden">
-                    <span className="absolute top-0 right-0 w-16 h-16 bg-rose-500/5 rounded-full pointer-events-none"></span>
-                    <div className="w-8 h-8 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-700 font-extrabold text-xs">III</div>
-                    <h5 className="text-sm font-black text-slate-900 uppercase tracking-tight">III. SELL-OUT ACCELERATION VIA WHITE BONUS</h5>
-                    <p className="text-[11.5px] leading-relaxed font-semibold text-slate-600">
-                      Mengaktifkan program insentif non-tunai (White Bonus) inovatif yang berfokus pada dorongan <strong className="text-slate-900">Sell-Out Velocity</strong> di tingkat konsumen akhir pada Bulan ke-2 dan ke-3. Kampanye merchandising eksklusif, bundling edukatif, serta penempatan personel sales bantuan secara taktis mempercepat rotasi perputaran stok di gudang ritel sebelum memasuki fase peningkatan pemesanan tutup siklus.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-amber-50 border border-amber-150 rounded-2xl text-[11px] text-slate-700 leading-normal flex items-start gap-2 shadow-3xs">
-                  <div className="text-amber-800 font-black shrink-0 text-xs">📌 METRIKS KELAYAKAN PROYEKSI STRATEGIS:</div>
-                  <p className="font-semibold">
-                    Strategi gabungan pilar di atas diestimasi menurunkan penolakan order (lost orders) akibat stockout sub-distributor sebesar <strong className="text-amber-900 font-black">18.5%</strong> dan meningkatkan tingkat retensi loyalitas program outlet sebesar <strong className="text-emerald-700 font-black">12.2%</strong> dalam jangka menengah.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Consulting Slide Footer */}
-            <div className="border-t border-slate-200 pt-4 flex flex-col sm:flex-row items-center justify-between text-[10px] text-slate-500 gap-2 font-sans font-semibold">
-              <span className="uppercase tracking-wider">&copy; REPORTKUY - ADVISORY PEMODELAN OMSET PEMBELIAN OUTLET.</span>
-              <span className="font-mono text-slate-500 font-extrabold italic">ReportKuy Consult • Strategic Advisory Services</span>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-    </div>
+      </div>
   );
 }

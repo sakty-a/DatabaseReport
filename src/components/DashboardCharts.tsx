@@ -752,14 +752,6 @@ export default function DashboardCharts({ records }: DashboardChartsProps) {
         </div>
 
         {/* Dynamic Warning Alert on severe client concentration risk */}
-        {paretoData.paretoPercentage >= 75 && (paretoData.paretoCount / paretoData.totalCount) <= 0.35 && (
-          <div className="bg-amber-50/60 border-l-4 border-amber-600 p-3.5 rounded-r-xl font-medium text-[11.5px] leading-relaxed text-slate-800 shadow-3xs flex items-start gap-2.5">
-            <Sparkles className="w-4 h-4 text-amber-700 shrink-0 mt-0.5 animate-pulse" />
-            <div>
-              <strong>ReportKuy Consult - Executive Commentary:</strong> Portofolio Anda memperlihatkan derajat konsentrasi pendapatan tinggi di mana <strong className="text-amber-800 font-black">{paretoData.paretoCount} outlet</strong> mengalirkan <strong className="text-amber-800 font-black">{paretoData.paretoPercentage.toFixed(1)}%</strong> seluruh transaksi penjualan. Pastikan program dukungan logistik, fleksibilitas kredit, dan kecukupan "White Bonus" terfokus total pada entitas elit ini guna mengamankan arus kas korporat.
-            </div>
-          </div>
-        )}
 
         <div className="bg-white border border-slate-150 rounded-2xl overflow-hidden shadow-3xs">
           <div className="overflow-x-auto">
