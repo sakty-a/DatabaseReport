@@ -8,7 +8,6 @@ import {
   Database, Plus, Trash2, BarChart3, Download,
   AlertCircle, Sparkles, RefreshCw, CircleHelp, Heart, User, Award, Plane, Store, Cpu
 } from 'lucide-react';
-import { SpeedInsights } from '@vercel/speed-insights/react';
 
 import { SalesRecord } from './types';
 import { generateSampleData, exportToExcel } from './utils';
@@ -483,9 +482,6 @@ export default function App() {
         editRecord={editingRecord}
         existingGroups={dropdownMetaData.groupNames}
       />
-
-      {/* Vercel Speed Insights */}
-      <SpeedInsights />
 
     </div>
   );
