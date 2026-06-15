@@ -27,7 +27,7 @@ import {
   Tooltip, 
   ResponsiveContainer 
 } from 'recharts';
-import { calculateMonthlyTrends } from '../utils';
+import { calculateMonthlyTrends, formatDate, parseExcelDate } from '../utils';
 
 interface CustomerSummary {
   customerId: string;
@@ -67,6 +67,7 @@ export default function CustomerSpotlight({ records, selectedCustId: propSelecte
   const setSelectedCustId = onSelectCustomer || setInternalSelectedCustId;
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [productSearchQuery, setProductSearchQuery] = useState('');
   const [activePeriod, setActivePeriod] = useState<'I' | 'II' | 'III'>('I');
 
   // Combine participants with same "no"
@@ -261,6 +262,34 @@ export default function CustomerSpotlight({ records, selectedCustId: propSelecte
     return records.filter(r => (r.customer_id || 'GUEST').toLowerCase().trim() === custIdLower);
   }, [records, activeCustomer]);
 
+  const getTanggalFaktur = (r: SalesRecord): any => {
+    if (r.customFields) {
+      const foundKey = Object.keys(r.customFields).find(k => {
+        const kl = k.toLowerCase().replace(/_/g, '').replace(/[\s-]/g, '');
+        return kl === 'tgldok' || kl === 'tgldokumen' || kl === 'tglfaktur' || kl === 'tanggalfaktur' || kl === 'tanggal';
+      });
+      if (foundKey && r.customFields[foundKey] !== undefined && r.customFields[foundKey] !== null) {
+        return r.customFields[foundKey];
+      }
+    }
+    return r.date || 'N/A';
+  };
+
+  const sortedCustomerRecords = useMemo(() => {
+    let list = [...activeCustomerRecords];
+    list.sort((a, b) => b.date.localeCompare(a.date));
+
+    const query = productSearchQuery.toLowerCase().trim();
+    if (query) {
+      list = list.filter(r => 
+        (r.product || '').toLowerCase().includes(query) ||
+        (r.group_name || '').toLowerCase().includes(query) ||
+        parseExcelDate(getTanggalFaktur(r)).toLowerCase().includes(query)
+      );
+    }
+    return list;
+  }, [activeCustomerRecords, productSearchQuery]);
+
   const monthlyTrends = useMemo(() => {
     return calculateMonthlyTrends(activeCustomerRecords);
   }, [activeCustomerRecords]);
@@ -442,7 +471,7 @@ export default function CustomerSpotlight({ records, selectedCustId: propSelecte
     <div id="customer-analytics-layout" className="grid grid-cols-1 lg:grid-cols-12 gap-6 font-sans">
       
       {/* LEFT COLUMN: Customer Selection Hub */}
-      <div className="lg:col-span-4 bg-white border border-slate-200 rounded-3xl p-5 shadow-xs flex flex-col h-[650px]">
+      <div className="lg:col-span-3 bg-white border border-slate-200 rounded-3xl p-5 shadow-xs flex flex-col h-[650px]">
         <div>
           <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Customer Search</h3>
         </div>
@@ -514,7 +543,7 @@ export default function CustomerSpotlight({ records, selectedCustId: propSelecte
       </div>
 
       {/* RIGHT COLUMN: Active Customer Performance Board */}
-      <div className="lg:col-span-8 space-y-6">
+      <div className="lg:col-span-9 space-y-6">
         {activeCustomer ? (
           <>
             {/* 1. Header Hero Panel */}
@@ -622,71 +651,105 @@ export default function CustomerSpotlight({ records, selectedCustId: propSelecte
               </div>
             </div>
 
-            {/* 3. Favorite Groups and Top Products Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* 3. Favorite Groups */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
+              <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>Favorite Categories</span>
+                </h4>
+                <span className="text-[10px] text-slate-400 font-semibold font-mono">By Spend</span>
+              </div>
               
-              {/* Column Group shares */}
-              <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-2xs flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
-                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                      <Briefcase className="w-3.5 h-3.5 text-indigo-500" />
-                      <span>Favorite Categories</span>
-                    </h4>
-                    <span className="text-[10px] text-slate-400 font-semibold font-mono">By Spend</span>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    {(Object.values(activeCustomer.groups) as Array<{ name: string; spend: number; qty: number }>).sort((a,b)=> b.spend - a.spend).map(grp => {
-                      const percent = activeCustomer.totalSpend > 0 ? parseFloat(((grp.spend / activeCustomer.totalSpend) * 100).toFixed(1)) : 0;
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(Object.values(activeCustomer.groups) as Array<{ name: string; spend: number; qty: number }>).sort((a,b)=> b.spend - a.spend).map(grp => {
+                  const percent = activeCustomer.totalSpend > 0 ? parseFloat(((grp.spend / activeCustomer.totalSpend) * 100).toFixed(1)) : 0;
+                  return (
+                    <div key={grp.name} className="space-y-1.5 p-3 bg-slate-50/50 rounded-2xl border border-slate-100">
+                      <div className="flex items-center justify-between text-xs font-medium text-slate-700 font-sans">
+                        <span className="truncate pr-2 font-bold text-slate-800">{grp.name}</span>
+                        <span className="font-mono text-slate-500 text-[11px] shrink-0 font-medium">{formatCurrency(grp.spend)} ({percent}%)</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-slate-100/85 rounded-full overflow-hidden">
+                        <div 
+                          className="bg-indigo-600 h-full rounded-full transition-all duration-500" 
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 4. Products Sold Table */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-2 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <ShoppingBag className="w-4 h-4 text-teal-600 shrink-0" />
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    Daftar Produk Terjual
+                  </h4>
+                  <span className="bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-0.5 rounded-full font-mono">
+                    {sortedCustomerRecords.length} Items Indexed
+                  </span>
+                </div>
+
+                {/* Inline Product & Category Search Bar */}
+                <div className="relative min-w-[200px] max-w-sm">
+                  <Search className="absolute left-3.5 top-2.5 w-3.5 h-3.5 text-slate-450" />
+                  <input
+                    type="text"
+                    placeholder="Cari produk / tanggal / kategori..."
+                    value={productSearchQuery}
+                    onChange={(e) => setProductSearchQuery(e.target.value)}
+                    className="w-full text-xs pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-600 focus:bg-white text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      <th className="py-3 px-2">No.</th>
+                      <th className="py-3 px-2">Tanggal Faktur</th>
+                      <th className="py-3 px-2">Nama Produk</th>
+                      <th className="py-3 px-2">Kategori</th>
+                      <th className="py-3 px-2 text-right">pcs</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {sortedCustomerRecords.map((rec, index) => {
+                      const rawTgl = getTanggalFaktur(rec);
+                      const cleanTgl = parseExcelDate(rawTgl) || String(rawTgl || '');
+                        
                       return (
-                        <div key={grp.name} className="space-y-1.5">
-                          <div className="flex items-center justify-between text-xs font-medium text-slate-700">
-                            <span className="truncate pr-2 font-semibold text-slate-800">{grp.name}</span>
-                            <span className="font-mono text-slate-500 text-[11px] shrink-0 font-medium">{formatCurrency(grp.spend)} ({percent}%)</span>
-                          </div>
-                          <div className="w-full h-1.5 bg-slate-100/80 rounded-full overflow-hidden">
-                            <div 
-                              className="bg-indigo-600 h-full rounded-full transition-all duration-500" 
-                              style={{ width: `${percent}%` }}
-                            />
-                          </div>
-                        </div>
+                        <tr key={rec.id} className="text-xs hover:bg-slate-50/50 transition-colors">
+                          <td className="py-3 px-2 text-slate-400 font-mono font-medium">{index + 1}</td>
+                          <td className="py-3 px-2 font-mono text-slate-600 font-medium whitespace-nowrap">
+                            {cleanTgl}
+                          </td>
+                          <td className="py-3 px-2">
+                            <span className="font-bold text-slate-800 block text-xs" title={rec.product}>
+                              {rec.product}
+                            </span>
+                          </td>
+                          <td className="py-3 px-2 text-slate-500 whitespace-nowrap">{rec.group_name}</td>
+                          <td className="py-3 px-2 text-right font-mono font-black text-slate-700">
+                            {rec.quantity.toLocaleString('id-ID')}
+                          </td>
+                        </tr>
                       );
                     })}
+                  </tbody>
+                </table>
+                {sortedCustomerRecords.length === 0 && (
+                  <div className="py-8 text-center text-slate-400 text-xs font-medium">
+                    Belum ada riwayat transaksi penjualan untuk customer ini.
                   </div>
-                </div>
+                )}
               </div>
-
-              {/* Products purchased list */}
-              <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-2xs">
-                <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
-                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                    <ShoppingBag className="w-3.5 h-3.5 text-teal-500" />
-                    <span>Top 10 Products</span>
-                  </h4>
-                  <span className="text-[10px] text-slate-400 font-semibold font-mono">By Revenue</span>
-                </div>
-
-                <div className="space-y-2.5">
-                  {(Object.values(activeCustomer.products) as Array<{ name: string; qty: number; spend: number; group: string }>).sort((a, b) => b.spend - a.spend).slice(0, 10).map(prod => (
-                    <div key={prod.name} className="flex justify-between items-center gap-3 text-xs border-b border-slate-50 pb-2 hover:bg-slate-50/30 px-1 rounded-lg transition-colors">
-                      <div className="min-w-0 flex-1">
-                        <span className="font-bold text-slate-800 block text-xs break-words leading-tight" title={prod.name}>
-                          {prod.name}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-medium">
-                          {prod.group} • {prod.qty} units
-                        </span>
-                      </div>
-                      <span className="font-mono font-bold text-slate-700 shrink-0 text-[11px] self-center">
-                        {formatCurrency(prod.spend)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
             </div>
 
 
