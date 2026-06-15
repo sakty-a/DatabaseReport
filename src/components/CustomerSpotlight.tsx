@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, 
   User, 
@@ -68,7 +68,26 @@ export default function CustomerSpotlight({ records, selectedCustId: propSelecte
 
   const [searchQuery, setSearchQuery] = useState('');
   const [productSearchQuery, setProductSearchQuery] = useState('');
+  const [selectedMonthFilter, setSelectedMonthFilter] = useState<string>('all');
   const [activePeriod, setActivePeriod] = useState<'I' | 'II' | 'III'>('I');
+  const [isGroupedView, setIsGroupedView] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const INDO_MONTHS: Record<string, string> = useMemo(() => ({
+    '01': 'Januari',
+    '02': 'Februari',
+    '03': 'Maret',
+    '04': 'April',
+    '05': 'Mei',
+    '06': 'Juni',
+    '07': 'Juli',
+    '08': 'Agustus',
+    '09': 'September',
+    '10': 'Oktober',
+    '11': 'November',
+    '12': 'Desember'
+  }), []);
 
   // Combine participants with same "no"
   const mergedParticipants = useMemo(() => {
@@ -275,6 +294,40 @@ export default function CustomerSpotlight({ records, selectedCustId: propSelecte
     return r.date || 'N/A';
   };
 
+  const getRecordMonthKey = (r: SalesRecord) => {
+    const rawTgl = getTanggalFaktur(r);
+    const cleanTgl = parseExcelDate(rawTgl) || String(rawTgl || '');
+    if (cleanTgl && cleanTgl.includes('-')) {
+      const parts = cleanTgl.split('-');
+      if (parts.length >= 2) {
+        return `${parts[0]}-${parts[1]}`; // YYYY-MM
+      }
+    }
+    return 'Lainnya';
+  };
+
+  const formatMonthKey = (key: string) => {
+    if (key === 'Lainnya') return 'Lainnya';
+    const parts = key.split('-');
+    if (parts.length === 2) {
+      const [year, col] = parts;
+      const name = INDO_MONTHS[col] || col;
+      return `${name} ${year}`;
+    }
+    return key;
+  };
+
+  const availableMonths = useMemo(() => {
+    const monthsSet = new Set<string>();
+    activeCustomerRecords.forEach(r => {
+      const key = getRecordMonthKey(r);
+      if (key && key !== 'Lainnya') {
+        monthsSet.add(key);
+      }
+    });
+    return Array.from(monthsSet).sort((a, b) => b.localeCompare(a));
+  }, [activeCustomerRecords]);
+
   const sortedCustomerRecords = useMemo(() => {
     let list = [...activeCustomerRecords];
     list.sort((a, b) => b.date.localeCompare(a.date));
@@ -287,8 +340,86 @@ export default function CustomerSpotlight({ records, selectedCustId: propSelecte
         parseExcelDate(getTanggalFaktur(r)).toLowerCase().includes(query)
       );
     }
+
+    if (selectedMonthFilter !== 'all') {
+      list = list.filter(r => getRecordMonthKey(r) === selectedMonthFilter);
+    }
     return list;
-  }, [activeCustomerRecords, productSearchQuery]);
+  }, [activeCustomerRecords, productSearchQuery, selectedMonthFilter]);
+
+  // Reset month filter when customer changes
+  useEffect(() => {
+    setSelectedMonthFilter('all');
+  }, [activeCustomer]);
+
+  // Reset page when search or options change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCustId, selectedMonthFilter, productSearchQuery, isGroupedView, pageSize]);
+
+  const processedList = useMemo(() => {
+    if (!isGroupedView) {
+      return sortedCustomerRecords.map((r, idx) => ({
+        id: r.id,
+        isGrouped: false,
+        no: idx + 1,
+        dateDisplay: parseExcelDate(getTanggalFaktur(r)) || String(getTanggalFaktur(r) || ''),
+        product: r.product,
+        group_name: r.group_name,
+        quantity: r.quantity,
+      }));
+    }
+
+    const groupedMap: Record<string, { product: string; group_name: string; quantity: number; frequency: number; lastDate: string; dates: string[] }> = {};
+    
+    sortedCustomerRecords.forEach(r => {
+      const prodName = r.product;
+      const tgl = parseExcelDate(getTanggalFaktur(r)) || String(getTanggalFaktur(r) || '');
+      
+      if (!groupedMap[prodName]) {
+        groupedMap[prodName] = {
+          product: prodName,
+          group_name: r.group_name,
+          quantity: 0,
+          frequency: 0,
+          lastDate: tgl,
+          dates: []
+        };
+      }
+      
+      groupedMap[prodName].quantity += r.quantity;
+      groupedMap[prodName].frequency += 1;
+      if (tgl && tgl !== 'N/A' && (!groupedMap[prodName].lastDate || tgl.localeCompare(groupedMap[prodName].lastDate) > 0)) {
+        groupedMap[prodName].lastDate = tgl;
+      }
+      if (tgl && !groupedMap[prodName].dates.includes(tgl)) {
+        groupedMap[prodName].dates.push(tgl);
+      }
+    });
+
+    return Object.values(groupedMap)
+      .sort((a, b) => b.quantity - a.quantity)
+      .map((item, idx) => ({
+        id: `grouped-${item.product}`,
+        isGrouped: true,
+        no: idx + 1,
+        dateDisplay: item.dates.length > 1 ? `${item.dates.length}x Transaksi` : item.lastDate,
+        product: item.product,
+        group_name: item.group_name,
+        quantity: item.quantity,
+        frequency: item.frequency,
+        lastDate: item.lastDate
+      }));
+  }, [sortedCustomerRecords, isGroupedView]);
+
+  const paginatedList = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return processedList.slice(start, start + pageSize);
+  }, [processedList, currentPage, pageSize]);
+
+  const totalPages = useMemo(() => {
+    return Math.ceil(processedList.length / pageSize) || 1;
+  }, [processedList, pageSize]);
 
   const monthlyTrends = useMemo(() => {
     return calculateMonthlyTrends(activeCustomerRecords);
@@ -683,28 +814,86 @@ export default function CustomerSpotlight({ records, selectedCustId: propSelecte
             </div>
 
             {/* 4. Products Sold Table */}
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-2 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <ShoppingBag className="w-4 h-4 text-teal-600 shrink-0" />
-                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                    Daftar Produk Terjual
-                  </h4>
-                  <span className="bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-0.5 rounded-full font-mono">
-                    {sortedCustomerRecords.length} Items Indexed
-                  </span>
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs flex flex-col gap-5">
+              <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-2 border-b border-slate-100">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <ShoppingBag className="w-4 h-4 text-teal-600 shrink-0" />
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      Daftar Produk Terjual
+                    </h4>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-0.5 rounded-full font-mono">
+                      {processedList.length} Item Sesuai
+                    </span>
+                    <span className="bg-slate-50 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded-full font-mono">
+                      Dari {sortedCustomerRecords.length} Transaksi terfilter
+                    </span>
+                  </div>
                 </div>
 
-                {/* Inline Product & Category Search Bar */}
-                <div className="relative min-w-[200px] max-w-sm">
-                  <Search className="absolute left-3.5 top-2.5 w-3.5 h-3.5 text-slate-450" />
-                  <input
-                    type="text"
-                    placeholder="Cari produk / tanggal / kategori..."
-                    value={productSearchQuery}
-                    onChange={(e) => setProductSearchQuery(e.target.value)}
-                    className="w-full text-xs pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-600 focus:bg-white text-slate-800"
-                  />
+                {/* Switcher & Selection filters */}
+                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+                  {/* View Mode Switcher */}
+                  <div className="flex bg-slate-100 hover:bg-slate-200/80 p-0.5 rounded-xl border border-slate-200 transition-colors self-start sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => setIsGroupedView(true)}
+                      className={`px-3 py-1.5 text-[11px] font-bold rounded-lg transition-all duration-205 ${
+                        isGroupedView 
+                          ? 'bg-white text-indigo-700 shadow-xs' 
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      Ringkas per Produk
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsGroupedView(false)}
+                      className={`px-3 py-1.5 text-[11px] font-bold rounded-lg transition-all duration-205 ${
+                        !isGroupedView 
+                          ? 'bg-white text-slate-900 shadow-xs' 
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      Semua Transaksi
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Month selector dropdown */}
+                    <div className="relative">
+                      <select
+                        value={selectedMonthFilter}
+                        onChange={(e) => setSelectedMonthFilter(e.target.value)}
+                        className="w-full sm:w-auto text-xs px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-600 focus:bg-white text-slate-700 font-semibold cursor-pointer transition-colors appearance-none pr-8 select-none font-sans"
+                        style={{ backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center', backgroundSize: '14px' }}
+                      >
+                        <option value="all">Semua Bulan ({activeCustomerRecords.length})</option>
+                        {availableMonths.map(mKey => {
+                          const count = activeCustomerRecords.filter(r => getRecordMonthKey(r) === mKey).length;
+                          return (
+                            <option key={mKey} value={mKey}>
+                              {formatMonthKey(mKey)} {count > 0 ? `(${count})` : ''}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+
+                    {/* Search bar */}
+                    <div className="relative min-w-[180px]">
+                      <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Cari nama produk / kategori..."
+                        value={productSearchQuery}
+                        onChange={(e) => setProductSearchQuery(e.target.value)}
+                        className="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-600 focus:bg-white text-slate-800"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -712,44 +901,109 @@ export default function CustomerSpotlight({ records, selectedCustId: propSelecte
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      <th className="py-3 px-2">No.</th>
-                      <th className="py-3 px-2">Tanggal Faktur</th>
+                      <th className="py-3 px-2 w-12">No.</th>
+                      <th className="py-3 px-2 w-36">
+                        {isGroupedView ? 'Frekuensi & Tanggal' : 'Tanggal Faktur'}
+                      </th>
                       <th className="py-3 px-2">Nama Produk</th>
                       <th className="py-3 px-2">Kategori</th>
-                      <th className="py-3 px-2 text-right">pcs</th>
+                      <th className="py-3 px-2 text-right w-24">pcs</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {sortedCustomerRecords.map((rec, index) => {
-                      const rawTgl = getTanggalFaktur(rec);
-                      const cleanTgl = parseExcelDate(rawTgl) || String(rawTgl || '');
-                        
+                    {paginatedList.map((item) => {
                       return (
-                        <tr key={rec.id} className="text-xs hover:bg-slate-50/50 transition-colors">
-                          <td className="py-3 px-2 text-slate-400 font-mono font-medium">{index + 1}</td>
+                        <tr key={item.id} className="text-xs hover:bg-slate-50/50 transition-colors">
+                          <td className="py-3 px-2 text-slate-400 font-mono font-medium">{item.no}</td>
                           <td className="py-3 px-2 font-mono text-slate-600 font-medium whitespace-nowrap">
-                            {cleanTgl}
+                            {item.isGrouped && item.frequency && item.frequency > 1 ? (
+                              <div className="flex flex-col">
+                                <span className="bg-slate-100 text-slate-700 text-[9px] font-black px-1.5 py-0.5 rounded-md inline-block max-w-max">
+                                  {item.frequency}x Transaksi
+                                </span>
+                                <span className="text-[10px] text-slate-400 mt-0.5">
+                                  Terakhir: {item.lastDate}
+                                </span>
+                              </div>
+                            ) : (
+                              item.dateDisplay
+                            )}
                           </td>
                           <td className="py-3 px-2">
-                            <span className="font-bold text-slate-800 block text-xs" title={rec.product}>
-                              {rec.product}
+                            <span className="font-bold text-slate-800 block text-xs" title={item.product}>
+                              {item.product}
                             </span>
                           </td>
-                          <td className="py-3 px-2 text-slate-500 whitespace-nowrap">{rec.group_name}</td>
-                          <td className="py-3 px-2 text-right font-mono font-black text-slate-700">
-                            {rec.quantity.toLocaleString('id-ID')}
+                          <td className="py-3 px-2 text-slate-500 whitespace-nowrap">{item.group_name}</td>
+                          <td className="py-3 px-2 text-right font-mono font-black text-indigo-600 text-sm animate-fade-in">
+                            {item.quantity.toLocaleString('id-ID')}
                           </td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
-                {sortedCustomerRecords.length === 0 && (
+                {processedList.length === 0 && (
                   <div className="py-8 text-center text-slate-400 text-xs font-medium">
                     Belum ada riwayat transaksi penjualan untuk customer ini.
                   </div>
                 )}
               </div>
+
+              {/* Classic Paging Control */}
+              {processedList.length > 0 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-2 pt-4 border-t border-slate-100 text-xs text-slate-500">
+                  <div className="font-medium text-slate-500 font-sans">
+                    Menampilkan <span className="font-bold text-slate-800 font-mono">{(currentPage - 1) * pageSize + 1}</span> -{' '}
+                    <span className="font-bold text-slate-800 font-mono">{Math.min(processedList.length, currentPage * pageSize)}</span> dari{' '}
+                    <span className="font-bold text-slate-800 font-mono">{processedList.length}</span> item yang cocok
+                  </div>
+                  
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Per Page:</span>
+                      <select
+                        value={pageSize}
+                        onChange={(e) => {
+                          setPageSize(Number(e.target.value));
+                        }}
+                        className="text-xs font-bold px-2 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-600 text-slate-700 cursor-pointer font-mono"
+                      >
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                      </select>
+                    </div>
+
+                    <div className="w-[1px] h-4 bg-slate-200" />
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        className="p-1.5 px-3 rounded-lg border border-slate-200 hover:bg-slate-50 text-[11px] font-black font-sans transition-colors disabled:opacity-40 disabled:cursor-not-allowed select-none text-slate-700 bg-white shadow-3xs"
+                      >
+                        Sebelumnya
+                      </button>
+
+                      <span className="font-sans text-xs text-slate-600 bg-slate-50/50 font-semibold px-3 py-1.5 rounded-lg border border-slate-150 select-none">
+                        Halaman <span className="font-black text-slate-800 font-mono text-xs">{currentPage}</span> dari <span className="font-black text-slate-800 font-mono text-xs">{totalPages}</span>
+                      </span>
+
+                      <button
+                        type="button"
+                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        className="p-1.5 px-3 rounded-lg border border-slate-200 hover:bg-slate-50 text-[11px] font-black font-sans transition-colors disabled:opacity-40 disabled:cursor-not-allowed select-none text-slate-700 bg-white shadow-3xs"
+                      >
+                        Berikutnya
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
 

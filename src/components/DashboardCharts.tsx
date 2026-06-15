@@ -308,13 +308,9 @@ export default function DashboardCharts({ records }: DashboardChartsProps) {
       {/* 1. Bento Stat: Total Sales revenue */}
       <div id="bento-revenue" className="lg:col-span-6 bg-white border border-slate-200 rounded-3xl p-6 flex flex-col justify-between shadow-xs hover:border-slate-300 transition-all duration-250 font-sans">
         <span className="text-slate-400 text-xs font-bold uppercase tracking-wider block">Total Sales</span>
-        <div className="flex items-end justify-between mt-4">
+        <div className="mt-4">
           <span className="text-3xl font-extrabold tracking-tighter text-slate-900 font-sans">
             {formatCurrency(stats.ttl_sales)}
-          </span>
-          <span className="text-emerald-500 text-xs bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full font-bold pb-1 flex items-center gap-1 shrink-0">
-            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-            +{stats.revenueGrowth}%
           </span>
         </div>
       </div>
