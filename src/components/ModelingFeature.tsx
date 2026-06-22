@@ -3,18 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   ComposedChart, Line, Area, ReferenceLine
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, HelpCircle, AlertTriangle, Cpu, CheckCircle2,
-  Sliders, Calendar, ArrowRight, Sparkles, BarChart2, Info, ChevronRight,
+  Sliders, Calendar, ArrowRight, Sparkles, BarChart2, Info, ChevronRight, ChevronLeft,
   Layers, Award, ShieldAlert, DollarSign, Lightbulb, BookOpen, Store, FileDown
 } from 'lucide-react';
 import { SalesRecord, MonthlyTrend } from '../types';
 import { calculateMonthlyTrends, formatCurrency } from '../utils';
+import { CASH_BACK_PARTICIPANTS, WHITE_BONUS_PARTICIPANTS, TOUR_BELGIA_PARTICIPANTS, TOUR_MALAYSIA_PARTICIPANTS } from './programParticipants';
 
 interface ModelingFeatureProps {
   records: SalesRecord[];
@@ -291,8 +292,19 @@ export default function ModelingFeature({ records }: ModelingFeatureProps) {
   const [extrapolateMethod, setExtrapolateMethod] = useState<ExtrapolateType>('mom_delta');
   const [manualAdjustment, setManualAdjustment] = useState<number>(0); // manual optimism multiplier -50% to +50%
   const [applyCBProgramSurge, setApplyCBProgramSurge] = useState<boolean>(true);
-  const [activeTabName, setActiveTabName] = useState<'forecasting' | 'consulting_deck'>('forecasting');
+  const [activeTabName, setActiveTabName] = useState<'forecasting' | 'sku_outlets' | 'consulting_deck'>('forecasting');
   const [activeSlideIndex, setActiveSlideIndex] = useState<number>(0);
+
+  // SKU & Outlets mapping states
+  const [skuSearchQuery, setSkuSearchQuery] = useState<string>('');
+  const [expandedSku, setExpandedSku] = useState<string | null>(null);
+  const [skuCurrentPage, setSkuCurrentPage] = useState<number>(1);
+
+  // Reset page and expanded SKU when active brand changes
+  useEffect(() => {
+    setSkuCurrentPage(1);
+    setExpandedSku(null);
+  }, [selectedBrand]);
 
   // Load saved monthly targets from localStorage
   const [monthlyTargets, setMonthlyTargets] = useState<Record<string, number>>(() => {
@@ -306,6 +318,85 @@ export default function ModelingFeature({ records }: ModelingFeatureProps) {
 
   const [editingTargetMonth, setEditingTargetMonth] = useState<string | null>(null);
   const [tempTargetVal, setTempTargetVal] = useState<string>('');
+
+  // Load and merge all outlet names/usernames (Custom SPG Aliases + Program Participants + Records Metadata)
+  const outletNamesMap = useMemo(() => {
+    const map: Record<string, string> = {};
+
+    // 1. Load standard participants and tour lists
+    CASH_BACK_PARTICIPANTS.forEach(p => {
+      if (p.code) map[p.code.trim().toUpperCase()] = p.name;
+    });
+    WHITE_BONUS_PARTICIPANTS.forEach(p => {
+      if (p.code) map[p.code.trim().toUpperCase()] = p.name;
+    });
+    TOUR_BELGIA_PARTICIPANTS.forEach(p => {
+      if (p.code) map[p.code.trim().toUpperCase()] = p.name;
+    });
+    TOUR_MALAYSIA_PARTICIPANTS.forEach(p => {
+      if (p.code) map[p.code.trim().toUpperCase()] = p.name;
+    });
+
+    // 2. Scan records customFields for any custom name fields dynamically imported
+    records.forEach(r => {
+      const cId = (r.customer_id || '').trim().toUpperCase();
+      if (!cId) return;
+
+      if (!map[cId] || map[cId] === 'GUEST') {
+        if (r.customFields) {
+          // Prioritize exact/prefix check for 'cust_nm' / 'custnm'
+          let nameKey = Object.keys(r.customFields).find(k => {
+            const kl = k.toLowerCase().replace(/_/g, '').replace(/[\s-]/g, '');
+            return [
+              'custnm', 'nama', 'name', 'clientname', 'customername', 'namaoutlet', 
+              'namatoko', 'outletname', 'outlet', 'toko', 'storename', 'storeusername', 
+              'username', 'namapelanggan', 'store', 'namastore'
+            ].includes(kl);
+          });
+          
+          if (!nameKey) {
+            nameKey = Object.keys(r.customFields).find(k => {
+              const kl = k.toLowerCase().replace(/_/g, '').replace(/[\s-]/g, '');
+              return (kl.includes('name') || kl.includes('nama') || kl.includes('customer') || 
+                      kl.includes('client') || kl.includes('pelanggan') || kl.includes('buyer') || 
+                      kl.includes('outlet') || kl.includes('toko') || kl.includes('store') ||
+                      kl.includes('custnm')) && 
+                     !kl.includes('id') && !kl.includes('code');
+            });
+          }
+
+          if (nameKey && r.customFields[nameKey]) {
+            const valStr = String(r.customFields[nameKey]).trim();
+            if (valStr && valStr.toUpperCase() !== cId) {
+              map[cId] = valStr;
+            }
+          }
+        }
+      }
+    });
+
+    // 3. Load custom user SPG aliases from localStorage to override/supplement
+    try {
+      const saved = localStorage.getItem('sales_report_spg_outlets');
+      if (saved) {
+        const list = JSON.parse(saved);
+        if (Array.isArray(list)) {
+          list.forEach((o: any) => {
+            if (o.custValue) {
+              map[o.custValue.trim().toUpperCase()] = o.aliasName;
+            }
+            if (o.id) {
+              map[o.id.trim().toUpperCase()] = o.aliasName;
+            }
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Error reading custom aliases:', e);
+    }
+
+    return map;
+  }, [records]);
 
   const handleSaveTarget = (month: string, val: string) => {
     const numeric = parseFloat(val.replace(/[^0-9.-]+/g, ''));
@@ -326,6 +417,116 @@ export default function ModelingFeature({ records }: ModelingFeatureProps) {
     if (selectedBrand === 'ALL') return records;
     return records.filter(r => r.group_name?.trim().toUpperCase() === selectedBrand.trim().toUpperCase());
   }, [records, selectedBrand]);
+
+  const skuOutletList = useMemo(() => {
+    if (!filteredRecords || filteredRecords.length === 0) return [];
+
+    const grouped: Record<string, { 
+      product: string; 
+      brand: string; 
+      totalQty: number; 
+      totalRevenue: number;
+      outletsMap: Record<string, { qty: number; revenue: number }> 
+    }> = {};
+
+    filteredRecords.forEach(r => {
+      const prodName = r.product?.trim() || 'Unknown SKU';
+      if (!grouped[prodName]) {
+        grouped[prodName] = {
+          product: prodName,
+          brand: r.group_name?.trim() || 'UNCATEGORIZED',
+          totalQty: 0,
+          totalRevenue: 0,
+          outletsMap: {}
+        };
+      }
+      const qty = r.quantity || 0;
+      const rev = r.ttl_sales || 0;
+      
+      grouped[prodName].totalQty += qty;
+      grouped[prodName].totalRevenue += rev;
+
+      const outletId = (r.customer_id || 'UMUM/GUEST').trim();
+      if (!grouped[prodName].outletsMap[outletId]) {
+        grouped[prodName].outletsMap[outletId] = { qty: 0, revenue: 0 };
+      }
+      grouped[prodName].outletsMap[outletId].qty += qty;
+      grouped[prodName].outletsMap[outletId].revenue += rev;
+    });
+
+    return Object.values(grouped).map(item => {
+      // transform outlets map to sorted array
+      const outletsArray = Object.entries(item.outletsMap).map(([id, stats]) => {
+        const percentage = item.totalQty > 0 ? (stats.qty / item.totalQty) * 100 : 0;
+        let resolvedName = outletNamesMap[id.toUpperCase()] || '';
+        if (!resolvedName) {
+          const upperId = id.toUpperCase();
+          if (upperId === 'GUEST' || upperId === 'UMUM/GUEST' || upperId === 'UMUM' || upperId.includes('GUEST')) {
+            resolvedName = 'Pelanggan Umum';
+          } else {
+            resolvedName = `Toko ${id}`;
+          }
+        }
+        return {
+          outletId: id,
+          outletName: resolvedName,
+          quantitySold: stats.qty,
+          revenue: stats.revenue,
+          percentage
+        };
+      }).sort((a, b) => b.quantitySold - a.quantitySold);
+
+      // Best performing outlet
+      const topOutlet = outletsArray[0] || { outletId: 'N/A', outletName: '', quantitySold: 0, percentage: 0 };
+
+      return {
+        product: item.product,
+        brand: item.brand,
+        totalSold: item.totalQty,
+        totalRevenue: item.totalRevenue,
+        outlets: outletsArray,
+        topOutlet,
+        outletsCount: outletsArray.length
+      };
+    }).sort((a, b) => b.totalSold - a.totalSold);
+  }, [filteredRecords, outletNamesMap]);
+
+  // Compute aggregated overview statistics for the SKU & Outlets list
+  const skuOutletMetrics = useMemo(() => {
+    if (skuOutletList.length === 0) {
+      return { totalVolume: 0, totalRevenue: 0, topSellsSku: 'N/A', avgOutlets: 0 };
+    }
+    const totalVolume = skuOutletList.reduce((sum, item) => sum + item.totalSold, 0);
+    const totalRevenue = skuOutletList.reduce((sum, item) => sum + item.totalRevenue, 0);
+    const topSellsSku = skuOutletList[0]?.product || 'N/A';
+    const totalOutletsSum = skuOutletList.reduce((sum, item) => sum + item.outletsCount, 0);
+    const avgOutlets = parseFloat((totalOutletsSum / skuOutletList.length).toFixed(1));
+
+    return {
+      totalVolume,
+      totalRevenue,
+      topSellsSku,
+      avgOutlets
+    };
+  }, [skuOutletList]);
+
+  // Filtered list of SKUs based on search query
+  const filteredSkus = useMemo(() => {
+    return skuOutletList.filter(sku => {
+      if (!skuSearchQuery.trim()) return true;
+      return sku.product.toLowerCase().includes(skuSearchQuery.toLowerCase());
+    });
+  }, [skuOutletList, skuSearchQuery]);
+
+  const ITEMS_PER_PAGE = 8;
+
+  // Paginated list of SKUs
+  const paginatedSkus = useMemo(() => {
+    const start = (skuCurrentPage - 1) * ITEMS_PER_PAGE;
+    return filteredSkus.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredSkus, skuCurrentPage]);
+
+  const totalSkuPages = Math.ceil(filteredSkus.length / ITEMS_PER_PAGE);
 
   // Prepare monthly historical aggregated data with a robust 17-month scope (including entire 2025 history)
   const historicalTrends = useMemo(() => {
@@ -921,24 +1122,40 @@ Laporan ini dihasilkan secara dinamis berdasarkan data aktual ledger Anda. Hak C
               className="bg-transparent border-none text-[11px] font-black text-slate-900 focus:outline-none cursor-pointer pr-1"
             >
               <option value="ALL">ALL BRANDS (KONSOLIDASI)</option>
-              <option value="ACNES">ACNES</option>
-              <option value="HADA LABO">HADA LABO</option>
-              <option value="KHALISA">KHALISA</option>
-              <option value="LIP ICE">LIP ICE</option>
-              <option value="MELANO CC">MELANO CC</option>
-              <option value="MENTHOLATUM">MENTHOLATUM</option>
-              <option value="OXY">OXY</option>
-              <option value="ROHTO EYE CARE">ROHTO EYE CARE</option>
-              <option value="ROHTO EYE FLUSH">ROHTO EYE FLUSH</option>
-              <option value="SELSUN">SELSUN</option>
-              <option value="SKIN AQUA">SKIN AQUA</option>
-              <option value="SUNPLAY">SUNPLAY</option>
             </select>
           </div>
         </div>
       </div>
 
-      <div className="space-y-6">
+      {/* Modern Sub-Tab Switcher inside modeling dashboard */}
+      <div className="flex border-b border-slate-200 mt-2 bg-slate-50/50 p-1 rounded-xl gap-2 w-max">
+        <button
+          onClick={() => setActiveTabName('forecasting')}
+          className={`px-4 py-2 text-xs font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+            activeTabName === 'forecasting'
+              ? 'bg-indigo-600 text-white shadow-xs'
+              : 'text-slate-550 hover:text-slate-800 hover:bg-slate-100 font-bold'
+          }`}
+        >
+          Proyeksi & Target Penjualan
+        </button>
+        <button
+          onClick={() => setActiveTabName('sku_outlets')}
+          className={`px-4 py-2 text-xs font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+            activeTabName === 'sku_outlets'
+              ? 'bg-indigo-600 text-white shadow-xs'
+              : 'text-slate-550 hover:text-slate-800 hover:bg-slate-100 font-bold'
+          }`}
+        >
+          <span className="flex items-center gap-1.5">
+            <Store className="w-3.5 h-3.5" />
+            Detil SKU & Sebaran Outlet
+          </span>
+        </button>
+      </div>
+
+      {activeTabName === 'forecasting' ? (
+        <div className="space-y-6">
           {/* Primary header widget layout */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             
@@ -1332,6 +1549,259 @@ Laporan ini dihasilkan secara dinamis berdasarkan data aktual ledger Anda. Hak C
             </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="space-y-6">
+          {/* SKU SEBARAN OUTLET PANEL */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {/* Metric A */}
+            <div className="bg-white border border-slate-200 p-5 rounded-3xl shadow-3xs text-left">
+              <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">Total Jenis SKU</span>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-2xl font-mono font-black text-slate-900">{skuOutletList.length}</span>
+                <span className="text-[10px] text-emerald-600 font-extrabold uppercase bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                  Aktif
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1 font-semibold">Jenis produk dengan transaksi tercatat di sistem.</p>
+            </div>
+
+            {/* Metric B */}
+            <div className="bg-white border border-slate-200 p-5 rounded-3xl shadow-3xs text-left">
+              <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">Total Volume Terjual</span>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-2xl font-mono font-black text-indigo-750">
+                  {skuOutletMetrics.totalVolume.toLocaleString('id-ID')}
+                </span>
+                <span className="text-[9.5px] text-slate-500 font-bold">Unit</span>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1 font-semibold">Total pemesanan distributor & ritel.</p>
+            </div>
+
+            {/* Metric C */}
+            <div className="bg-white border border-slate-200 p-5 rounded-3xl shadow-3xs text-left">
+              <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">Rata-rata Sebaran Outlet</span>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-2xl font-mono font-black text-amber-700">
+                  {skuOutletMetrics.avgOutlets}
+                </span>
+                <span className="text-[9.5px] text-slate-500 font-bold">Outlet / SKU</span>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1 font-semibold">Rata-rata jumlah toko ritel yang menjual per SKU.</p>
+            </div>
+
+            {/* Metric D */}
+            <div className="bg-white border border-slate-200 p-5 rounded-3xl shadow-3xs text-left">
+              <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">Total Omset SKU</span>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-[15px] font-mono font-black text-slate-900 block truncate">
+                  {formatCurrency(skuOutletMetrics.totalRevenue)}
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1 font-semibold">Nilai penjualan kotor seluruh SKU tergrup.</p>
+            </div>
+          </div>
+
+          {/* MAIN SKU ROW TABLE VIEW */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-3xs text-left space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
+              <div>
+                <h4 className="text-sm font-black text-slate-950 uppercase tracking-tight">INFORMASI DISTRIBUSI & OUTLET PENJUAL SKU</h4>
+                <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-wide">
+                  Hasil Pemetaan Distribusi SKU ke Tiap-Tiap Outlet Berdasarkan Data Real Transaksi Ledger
+                </p>
+              </div>
+
+              {/* SKU Search filter input bar */}
+              <div className="relative w-full sm:w-80">
+                <input
+                  type="text"
+                  placeholder="Cari nama produk SKU..."
+                  value={skuSearchQuery}
+                  onChange={(e) => {
+                    setSkuSearchQuery(e.target.value);
+                    setSkuCurrentPage(1);
+                  }}
+                  className="w-full px-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-600 focus:bg-white"
+                />
+              </div>
+            </div>
+
+            {/* List Table of SKU details with expand support */}
+            <div className="overflow-x-auto border border-slate-100 rounded-2xl">
+              <table className="w-full text-left font-sans text-[11px] border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-extrabold uppercase text-[8.5px] tracking-widest">
+                    <th className="py-2.5 px-4">Nama Produk SKU</th>
+                    <th className="py-2.5 px-4 text-center">Performa Sales</th>
+                    <th className="py-2.5 px-4 text-center">Sebaran Outlet</th>
+                    <th className="py-2.5 px-4 text-center" style={{ width: '110px' }}>Detil</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {paginatedSkus.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-slate-400 font-semibold uppercase tracking-wider text-xs">
+                        Tidak ada SKU ditemukan dengan kata pencarian "{skuSearchQuery}"
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedSkus.map(sku => {
+                      const isExpanded = expandedSku === sku.product;
+
+                      return (
+                        <>
+                          <tr key={sku.product} className={`hover:bg-slate-50/40 transition-colors ${isExpanded ? 'bg-indigo-50/10' : ''}`}>
+                            <td className="py-2.5 px-4 max-w-[240px]">
+                              <div className="font-extrabold text-slate-900 leading-normal truncate" title={sku.product}>
+                                {sku.product}
+                              </div>
+                              <span className="inline-block mt-0.5 font-mono font-bold text-[8.5px] bg-indigo-50 text-indigo-700 px-1.5 py-0.2 rounded uppercase">
+                                {sku.brand}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-4 text-center">
+                              <div className="font-mono font-extrabold text-slate-900">
+                                {sku.totalSold.toLocaleString('id-ID')} unit
+                              </div>
+                              <div className="text-[10px] text-slate-450 font-mono mt-0.5">
+                                {formatCurrency(sku.totalRevenue)}
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-4 text-center">
+                              <div className="inline-block font-mono font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 text-[9.5px]">
+                                {sku.outletsCount} Outlet
+                              </div>
+                              <div className="text-[10px] text-slate-550 mt-1 font-semibold leading-tight max-w-[180px] truncate mx-auto" title={sku.topOutlet.outletName || sku.topOutlet.outletId}>
+                                Utama: <span className="text-slate-800">{sku.topOutlet.outletName || sku.topOutlet.outletId}</span> ({sku.topOutlet.percentage.toFixed(0)}%)
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-4 text-center align-middle">
+                              <button
+                                onClick={() => {
+                                  setExpandedSku(isExpanded ? null : sku.product);
+                                }}
+                                className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-1 mx-auto cursor-pointer border ${
+                                  isExpanded 
+                                    ? 'bg-rose-50 border-rose-150 text-rose-600 hover:bg-rose-100' 
+                                    : 'bg-indigo-50 border-indigo-100 text-indigo-650 hover:bg-indigo-100/70'
+                                }`}
+                              >
+                                <span>{isExpanded ? 'Tutup' : 'Outlet'}</span>
+                              </button>
+                            </td>
+                          </tr>
+
+                          {/* Expanded Outlet list section nested directly under table row */}
+                          {isExpanded && (
+                            <tr key={`${sku.product}-expanded`}>
+                              <td colSpan={4} className="p-3 bg-slate-50/70">
+                                <div className="border border-slate-200 bg-white rounded-2xl p-4 shadow-3xs space-y-3 font-sans max-w-3xl mx-auto">
+                                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                                    <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
+                                      Sebaran Outlet Aktif ({sku.outletsCount})
+                                    </span>
+                                    <span className="text-[10px] text-indigo-650 font-mono font-black uppercase">
+                                      Total Omset: {formatCurrency(sku.totalRevenue)}
+                                    </span>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                                    {/* Left list: top selling outlets */}
+                                    <div className="md:col-span-8 space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
+                                      <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden bg-white text-left">
+                                        {sku.outlets.map((outlet, idx) => (
+                                          <div key={outlet.outletId} className="p-1.5 px-2.5 flex items-center justify-between gap-3 text-xs hover:bg-slate-50/50">
+                                            <div className="flex items-start gap-2 max-w-[240px] text-left">
+                                              <span className="text-[9.5px] font-mono font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded mt-0.5 shrink-0">
+                                                #{idx + 1}
+                                              </span>
+                                              <div className="flex flex-col min-w-0">
+                                                <span className="text-[11px] font-extrabold text-slate-900 truncate" title={outlet.outletName || outlet.outletId}>
+                                                  {outlet.outletName || outlet.outletId}
+                                                </span>
+                                                {outlet.outletName && (
+                                                  <span className="text-[9.5px] font-mono font-medium text-slate-450 mt-0.5 block">
+                                                    Kode: <span className="text-slate-500 font-bold">{outlet.outletId}</span>
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+
+
+
+                                            <div className="text-right shrink-0">
+                                              <span className="font-mono font-bold text-slate-900 text-[11px] block">
+                                                {outlet.quantitySold.toLocaleString('id-ID')} unit
+                                              </span>
+                                              <span className="text-[8.5px] text-emerald-600 font-semibold block">
+                                                {outlet.percentage.toFixed(1)}% kontribusi
+                                              </span>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+
+                                    {/* Right compact suggestion box */}
+                                    <div className="md:col-span-4 bg-slate-100/50 border border-slate-250/30 p-3 rounded-xl text-[10.5px] text-slate-600 leading-relaxed text-left flex flex-col justify-between">
+                                      <div>
+                                        <div className="flex items-center gap-1 text-amber-600 font-extrabold uppercase text-[9px] tracking-wide mb-1">
+                                          <Lightbulb className="w-3.5 h-3.5" />
+                                          Rekomendasi
+                                        </div>
+                                        <p className="text-slate-550 leading-normal font-medium">
+                                          Penjualan SKU didominasi <strong className="text-indigo-700">{sku.topOutlet.outletName || sku.topOutlet.outletId}</strong> ({sku.topOutlet.percentage.toFixed(0)}%). Disarankan promosi merata di outlet lain untuk meningkatkan penetrasi produk.
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            {totalSkuPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 font-sans text-xs text-slate-500">
+                <span className="font-semibold font-mono text-[10.5px]">
+                  Menampilkan {Math.min(filteredSkus.length, (skuCurrentPage - 1) * ITEMS_PER_PAGE + 1)}-{Math.min(filteredSkus.length, skuCurrentPage * ITEMS_PER_PAGE)} dari {filteredSkus.length} SKU
+                </span>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    disabled={skuCurrentPage === 1}
+                    onClick={() => setSkuCurrentPage(prev => Math.max(1, prev - 1))}
+                    className="p-1 px-2.5 bg-slate-50 hover:bg-slate-100 disabled:opacity-40 border border-slate-200 rounded-lg text-slate-600 transition-all font-semibold flex items-center gap-1 cursor-pointer disabled:cursor-not-allowed text-[10.5px] uppercase tracking-wide"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <span>Sebelumnya</span>
+                  </button>
+
+                  <div className="flex items-center gap-1 mx-1.5 font-mono text-[10.5px] font-black text-slate-700">
+                    Halaman <span className="text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded">{skuCurrentPage}</span> dari {totalSkuPages}
+                  </div>
+
+                  <button
+                    disabled={skuCurrentPage === totalSkuPages}
+                    onClick={() => setSkuCurrentPage(prev => Math.min(totalSkuPages, prev + 1))}
+                    className="p-1 px-2.5 bg-slate-50 hover:bg-slate-100 disabled:opacity-40 border border-slate-200 rounded-lg text-slate-600 transition-all font-semibold flex items-center gap-1 cursor-pointer disabled:cursor-not-allowed text-[10.5px] uppercase tracking-wide"
+                  >
+                    <span>Berikutnya</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

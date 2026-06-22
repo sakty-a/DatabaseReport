@@ -57,7 +57,13 @@ export default function OutletSPG({ records }: OutletSPGProps) {
     try {
       const saved = localStorage.getItem('sales_report_spg_outlets');
       if (saved) {
-        return JSON.parse(saved);
+        const parsed: SPGOutlet[] = JSON.parse(saved);
+        return parsed.map(o => ({
+          ...o,
+          aliasName: o.aliasName && o.aliasName.startsWith('SPG - ') 
+            ? o.aliasName.substring(6) 
+            : o.aliasName
+        }));
       }
     } catch (e) {
       console.error('Failed to parse SPG outlets:', e);
@@ -182,7 +188,7 @@ export default function OutletSPG({ records }: OutletSPGProps) {
       const sampleSeeds: SPGOutlet[] = uniqueCustomersInLedger.slice(0, 3).map((cust, idx) => ({
         id: `spg-seed-${idx}-${Date.now()}`,
         custValue: cust.id,
-        aliasName: `SPG - ${cust.id}`,
+        aliasName: getClientName(cust.id) || cust.id,
         addedAt: new Date().toISOString()
       }));
       saveOutlets(sampleSeeds);
@@ -215,7 +221,7 @@ export default function OutletSPG({ records }: OutletSPGProps) {
     const created: SPGOutlet = {
       id: `spg-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       custValue: cleanVal,
-      aliasName: newAlias.trim() || `SPG - ${cleanVal}`,
+      aliasName: newAlias.trim() || getClientName(cleanVal) || cleanVal,
       addedAt: new Date().toISOString()
     };
 
@@ -490,7 +496,7 @@ export default function OutletSPG({ records }: OutletSPGProps) {
                                 const created: SPGOutlet = {
                                   id: `spg-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
                                   custValue: u.id,
-                                  aliasName: `SPG - ${nameVal !== 'General Cust' ? nameVal : u.id}`,
+                                  aliasName: nameVal !== 'General Cust' ? nameVal : u.id,
                                   addedAt: new Date().toISOString()
                                 };
                                 const nextList = [...outlets, created];
@@ -541,7 +547,7 @@ export default function OutletSPG({ records }: OutletSPGProps) {
                   const created: SPGOutlet = {
                     id: `spg-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
                     custValue: val,
-                    aliasName: `SPG - ${nameResolved}`,
+                    aliasName: nameResolved,
                     addedAt: new Date().toISOString()
                   };
                   const nextList = [...outlets, created];
