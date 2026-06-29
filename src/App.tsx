@@ -6,7 +6,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Database, Plus, Trash2, BarChart3, Download,
-  AlertCircle, Sparkles, RefreshCw, CircleHelp, Heart, User, Award, Plane, Store, Cpu
+  AlertCircle, Sparkles, RefreshCw, CircleHelp, Heart, User, Award, Plane, Store, Cpu, Tag
 } from 'lucide-react';
 
 import { SalesRecord } from './types';
@@ -15,6 +15,7 @@ import { generateSampleData, exportToExcel } from './utils';
 import FileImport from './components/FileImport';
 import DashboardCharts from './components/DashboardCharts';
 import CustomerSpotlight from './components/CustomerSpotlight';
+import BrandInformation from './components/BrandInformation';
 import CashBackProgram from './components/CashBackProgram';
 import TourProgram from './components/TourProgram';
 import RecordFormModal from './components/RecordFormModal';
@@ -29,7 +30,7 @@ export default function App() {
   const [isInitialized, setIsInitialized] = useState(false);
   
   // Navigation
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'customer' | 'cashback' | 'tour' | 'outletspg' | 'custom_cashback' | 'modeling'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'customer' | 'brand_info' | 'cashback' | 'tour' | 'outletspg' | 'custom_cashback' | 'modeling'>('dashboard');
   const [selectedCustId, setSelectedCustId] = useState<string>('');
   
   // Modal controllers
@@ -326,6 +327,19 @@ export default function App() {
             </button>
 
             <button
+              onClick={() => setActiveTab('brand_info')}
+              className={`px-3 md:px-4 py-2 text-xs font-bold flex items-center gap-2 rounded-2xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                activeTab === 'brand_info'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+              }`}
+              title="View comprehensive details of your brands and SKU total sales"
+            >
+              <Tag className="w-3.5 h-3.5" />
+              <span>Brand Information</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('outletspg')}
               className={`px-3 md:px-4 py-2 text-xs font-bold flex items-center gap-2 rounded-2xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                 activeTab === 'outletspg'
@@ -406,6 +420,8 @@ export default function App() {
               selectedCustId={selectedCustId} 
               onSelectCustomer={setSelectedCustId} 
             />
+          ) : activeTab === 'brand_info' ? (
+            <BrandInformation records={records} />
           ) : activeTab === 'custom_cashback' ? (
             <CustomCashBackProgram 
               records={records} 

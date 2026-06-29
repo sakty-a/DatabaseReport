@@ -334,7 +334,12 @@ export function generateSampleData(): SalesRecord[] {
     'HADA LABO': [
       { name: 'Hada Labo Gokujyun Moisturizing Lotion 100ml', price: 45000 },
       { name: 'Hada Labo Gokujyun Face Wash 100g', price: 38000 },
-      { name: 'Hada Labo Shirojyun Whitening Essence 30g', price: 140000 }
+      { name: 'Hada Labo Shirojyun Whitening Essence 30g', price: 140000 },
+      { name: 'Hada Labo Shirojyun Whitening Lotion 100ml', price: 54000 },
+      { name: 'Hada Labo Tamagohada Mild Peeling Face Wash 100g', price: 42000 },
+      { name: 'Hada Labo Gokujyun Alfa Ultimate Anti-Aging Cream 50g', price: 110000 },
+      { name: 'Hada Labo Gokujyun Alfa Milk 100ml', price: 82000 },
+      { name: 'Hada Labo Perfect 3D Gel Moisturizer 100g', price: 125000 }
     ],
     'KHALISA': [
       { name: 'Khalisa Lip Care Peach', price: 22000 },
