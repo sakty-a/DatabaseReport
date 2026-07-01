@@ -62,7 +62,7 @@ function getHadaLaboSubBrand(productName: string): string {
 }
 
 // Classifier function to map records to the exact 10 brand categories and their sub-brands
-function classifyRecord(groupName: string, productName: string): { catName: string; subBrandName: string } {
+export function classifyRecord(groupName: string, productName: string): { catName: string; subBrandName: string } {
   const grp = (groupName || '').trim().toUpperCase();
   const prod = (productName || '').trim().toUpperCase();
   const combined = `${grp} ${prod}`;

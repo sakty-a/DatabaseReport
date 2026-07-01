@@ -16,6 +16,7 @@ import {
 import { SalesRecord, MonthlyTrend } from '../types';
 import { calculateMonthlyTrends, formatCurrency } from '../utils';
 import { CASH_BACK_PARTICIPANTS, WHITE_BONUS_PARTICIPANTS, TOUR_BELGIA_PARTICIPANTS, TOUR_MALAYSIA_PARTICIPANTS } from './programParticipants';
+import { classifyRecord } from './BrandInformation';
 
 interface ModelingFeatureProps {
   records: SalesRecord[];
@@ -32,46 +33,46 @@ const isClosingMonthOfCBPorgram = (monthLabel: string): boolean => {
 // High-fidelity preloaded 2026 targets per month per brand (from user-provided targets sheets)
 export const DEFAULT_2026_BRAND_TARGETS: Record<string, Record<string, number>> = {
   'ALL': {
-    "Jan '26": 7093999364,
-    "Feb '26": 7696695012,
-    "Mar '26": 8812735960,
-    "Apr '26": 7637238660,
-    "May '26": 8370575260,
-    "Jun '26": 8274936131,
-    "Jul '26": 10942463713,
-    "Aug '26": 10339614453,
-    "Sep '26": 9827227157,
-    "Oct '26": 9609523437,
-    "Nov '26": 10002143461,
-    "Dec '26": 8958843592
+    "Jan '26": 8480732543,
+    "Feb '26": 8980154540,
+    "Mar '26": 10709154012,
+    "Apr '26": 9025003057,
+    "May '26": 10155753759,
+    "Jun '26": 10425969430,
+    "Jul '26": 12463529360,
+    "Aug '26": 13829826074,
+    "Sep '26": 11207003821,
+    "Oct '26": 10784844498,
+    "Nov '26": 11546523799,
+    "Dec '26": 11400962934
   },
   'ACNES': {
-    "Jan '26": 1125072426,
-    "Feb '26": 1220656908,
-    "Mar '26": 1397655359,
-    "Apr '26": 1211227431,
-    "May '26": 1327530908,
-    "Jun '26": 1312363026,
-    "Jul '26": 1735419411,
-    "Aug '26": 1639810567,
-    "Sep '26": 1558548533,
-    "Oct '26": 1524021824,
-    "Nov '26": 1586289374,
-    "Dec '26": 1420827290
+    "Jan '26": 1134539513,
+    "Feb '26": 1229418957,
+    "Mar '26": 1410602013,
+    "Apr '26": 1220701559,
+    "May '26": 1339718141,
+    "Jun '26": 1327047913,
+    "Jul '26": 1745803572,
+    "Aug '26": 1663637889,
+    "Sep '26": 1567968129,
+    "Oct '26": 1532045622,
+    "Nov '26": 1596832702,
+    "Dec '26": 1437499393
   },
   'HADA LABO': {
-    "Jan '26": 2855217719,
-    "Feb '26": 3097792776,
-    "Mar '26": 3546980846,
-    "Apr '26": 3073862575,
-    "May '26": 3369018459,
-    "Jun '26": 3330525287,
-    "Jul '26": 4404161135,
-    "Aug '26": 4161524252,
-    "Sep '26": 3955296818,
-    "Oct '26": 3867674662,
-    "Nov '26": 4025697745,
-    "Dec '26": 3605786758
+    "Jan '26": 2855230898,
+    "Feb '26": 3097804972,
+    "Mar '26": 3546998868,
+    "Apr '26": 3073875763,
+    "May '26": 3369035424,
+    "Jun '26": 3330545728,
+    "Jul '26": 4404175589,
+    "Aug '26": 4161557420,
+    "Sep '26": 3955309930,
+    "Oct '26": 3867685831,
+    "Nov '26": 4025712421,
+    "Dec '26": 3605809966
   },
   'KHALISA': {
     "Jan '26": 1296778,
@@ -144,46 +145,46 @@ export const DEFAULT_2026_BRAND_TARGETS: Record<string, Record<string, number>> 
     "Dec '26": 3651198
   },
   'ROHTO EYE CARE': {
-    "Jan '26": 101489684,
-    "Feb '26": 110112097,
-    "Mar '26": 126078639,
-    "Apr '26": 109261490,
-    "May '26": 119752906,
-    "Jun '26": 118344653,
-    "Jul '26": 156547404,
-    "Aug '26": 147922794,
-    "Sep '26": 140592369,
-    "Oct '26": 137477810,
-    "Nov '26": 143094794,
-    "Dec '26": 128168915
+    "Jan '26": 1185150271,
+    "Feb '26": 1113069642,
+    "Mar '26": 1608031716,
+    "Apr '26": 1193727921,
+    "May '26": 1514777997,
+    "Jun '26": 1799306437,
+    "Jul '26": 1345181899,
+    "Aug '26": 2875343492,
+    "Sep '26": 1218116799,
+    "Oct '26": 1055930712,
+    "Nov '26": 1349948521,
+    "Dec '26": 2036559456
   },
   'ROHTO EYE FLUSH': {
-    "Jan '26": 1189122,
-    "Feb '26": 1290148,
-    "Mar '26": 1477223,
-    "Apr '26": 1280182,
-    "May '26": 1403107,
-    "Jun '26": 1387075,
-    "Jul '26": 1834216,
-    "Aug '26": 1733164,
-    "Sep '26": 1647276,
-    "Oct '26": 1610784,
-    "Nov '26": 1676596,
-    "Dec '26": 1501714
+    "Jan '26": 68781700,
+    "Feb '26": 63848930,
+    "Mar '26": 93913018,
+    "Apr '26": 68923023,
+    "May '26": 88416229,
+    "Jun '26": 106233406,
+    "Jul '26": 75974468,
+    "Aug '26": 171854138,
+    "Sep '26": 68900777,
+    "Oct '26": 58898646,
+    "Nov '26": 76953260,
+    "Dec '26": 120536251
   },
   'SELSUN': {
-    "Jan '26": 1691637223,
-    "Feb '26": 1835356209,
-    "Mar '26": 2101487669,
-    "Apr '26": 1821178229,
-    "May '26": 1996049896,
-    "Jun '26": 1973243760,
-    "Jul '26": 2609343190,
-    "Aug '26": 2465587574,
-    "Sep '26": 2343403545,
-    "Oct '26": 2291489851,
-    "Nov '26": 2385114140,
-    "Dec '26": 2136288539
+    "Jan '26": 1917636972,
+    "Feb '26": 2044525164,
+    "Mar '26": 2410552174,
+    "Apr '26": 2047346038,
+    "May '26": 2286985382,
+    "Jun '26": 2323803617,
+    "Jul '26": 2857235473,
+    "Aug '26": 3034397033,
+    "Sep '26": 2568269571,
+    "Oct '26": 2483035181,
+    "Nov '26": 2636806083,
+    "Dec '26": 2534327495
   },
   'SKIN AQUA': {
     "Jan '26": 1118591691,
@@ -286,6 +287,19 @@ const getExecutiveTakeawayForBrand = (brand: string): { title: string; strategy:
 export default function ModelingFeature({ records }: ModelingFeatureProps) {
   // Brand specific selection
   const [selectedBrand, setSelectedBrand] = useState<string>('ALL');
+  const [targetViewFormat, setTargetViewFormat] = useState<'full' | 'millions'>('millions');
+
+  const formatTargetVal = (val: number) => {
+    if (targetViewFormat === 'millions') {
+      const millionVal = val / 1000000;
+      const formattedNum = new Intl.NumberFormat('id-ID', {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1
+      }).format(millionVal);
+      return `Rp ${formattedNum} Jt`;
+    }
+    return formatCurrency(val);
+  };
 
   // Projection options
   const [monthsToProject, setMonthsToProject] = useState<number>(3);
@@ -412,10 +426,28 @@ export default function ModelingFeature({ records }: ModelingFeatureProps) {
     setEditingTargetMonth(null);
   };
 
-  // Filter records by brand if selected
+  // Filter records by brand if selected using unified classification matching to guarantee parity with BrandInformation
   const filteredRecords = useMemo(() => {
     if (selectedBrand === 'ALL') return records;
-    return records.filter(r => r.group_name?.trim().toUpperCase() === selectedBrand.trim().toUpperCase());
+    return records.filter(r => {
+      const { catName, subBrandName } = classifyRecord(r.group_name || '', r.product || '');
+      const targetBrand = selectedBrand.trim().toUpperCase();
+      
+      if (targetBrand === 'ACNES') return catName.toUpperCase() === 'ACNES';
+      if (targetBrand === 'HADA LABO') return catName.toUpperCase() === 'HADA LABO';
+      if (targetBrand === 'KHALISA') return catName.toUpperCase() === 'KHALISA';
+      if (targetBrand === 'LIP ICE') return catName.toUpperCase() === 'LIP ICE';
+      if (targetBrand === 'MELANO CC') return catName.toUpperCase() === 'MELANO CC';
+      if (targetBrand === 'SELSUN') return catName.toUpperCase() === 'SELSUN';
+      if (targetBrand === 'ROHTO EYE CARE') return catName.toUpperCase() === 'EYE CARE';
+      if (targetBrand === 'ROHTO EYE FLUSH') return catName.toUpperCase() === 'EYE WASH';
+      if (targetBrand === 'SKIN AQUA') return catName.toUpperCase() === 'SKIN AQUA DAN SUNPLAY' && subBrandName.toUpperCase() === 'SKIN AQUA';
+      if (targetBrand === 'SUNPLAY') return catName.toUpperCase() === 'SKIN AQUA DAN SUNPLAY' && subBrandName.toUpperCase() === 'SUNPLAY';
+      if (targetBrand === 'OXY') return subBrandName.toUpperCase() === 'OXY';
+      if (targetBrand === 'MENTHOLATUM') return subBrandName.toUpperCase() === 'MENTHOLATUM';
+      
+      return r.group_name?.trim().toUpperCase() === targetBrand;
+    });
   }, [records, selectedBrand]);
 
   const skuOutletList = useMemo(() => {
@@ -432,9 +464,11 @@ export default function ModelingFeature({ records }: ModelingFeatureProps) {
     filteredRecords.forEach(r => {
       const prodName = r.product?.trim() || 'Unknown SKU';
       if (!grouped[prodName]) {
+        const { catName, subBrandName } = classifyRecord(r.group_name || '', r.product || '');
+        const displayBrand = (catName === 'Other' || catName === 'Skin Aqua dan Sunplay') ? subBrandName : catName;
         grouped[prodName] = {
           product: prodName,
-          brand: r.group_name?.trim() || 'UNCATEGORIZED',
+          brand: displayBrand.toUpperCase(),
           totalQty: 0,
           totalRevenue: 0,
           outletsMap: {}
@@ -739,10 +773,22 @@ export default function ModelingFeature({ records }: ModelingFeatureProps) {
       if (!isNaN(parsedYear)) startYear = parsedYear;
     }
 
+    // We want to make sure we project at least until December 2026 (month 11, year 26)
+    // Let's compute how many months are needed from startMonthIdx and startYear
+    let targetSteps = monthsToProject;
+    if (startYear === 25) {
+      // 12 months of 2026, plus whatever is left of 2025
+      const monthsLeftIn2025 = 11 - startMonthIdx;
+      targetSteps = Math.max(monthsToProject, monthsLeftIn2025 + 12);
+    } else if (startYear === 26) {
+      const monthsLeftIn2026 = 11 - startMonthIdx;
+      targetSteps = Math.max(monthsToProject, monthsLeftIn2026);
+    }
+
     const forecastPoints = [];
     let cumulativeCagrValue = lastVal;
 
-    for (let step = 1; step <= monthsToProject; step++) {
+    for (let step = 1; step <= targetSteps; step++) {
       const nextXIdx = N + step;
       
       // A. Linear Regression estimate
@@ -859,7 +905,8 @@ export default function ModelingFeature({ records }: ModelingFeatureProps) {
     const allMonths = historicalTrends.map(t => t.month);
 
     records.forEach(r => {
-      const brand = r.group_name || 'Uncategorized';
+      const { catName } = classifyRecord(r.group_name || '', r.product || '');
+      const brand = catName;
       if (!brandsMap[brand]) {
         brandsMap[brand] = { monthSales: {}, totalRevenue: 0, units: 0 };
       }
@@ -1122,6 +1169,18 @@ Laporan ini dihasilkan secara dinamis berdasarkan data aktual ledger Anda. Hak C
               className="bg-transparent border-none text-[11px] font-black text-slate-900 focus:outline-none cursor-pointer pr-1"
             >
               <option value="ALL">ALL BRANDS (KONSOLIDASI)</option>
+              <option value="ACNES">ACNES</option>
+              <option value="HADA LABO">HADA LABO</option>
+              <option value="KHALISA">KHALISA</option>
+              <option value="LIP ICE">LIP ICE</option>
+              <option value="MELANO CC">MELANO CC</option>
+              <option value="MENTHOLATUM">MENTHOLATUM</option>
+              <option value="OXY">OXY</option>
+              <option value="ROHTO EYE CARE">ROHTO EYE CARE</option>
+              <option value="ROHTO EYE FLUSH">ROHTO EYE FLUSH</option>
+              <option value="SELSUN">SELSUN</option>
+              <option value="SKIN AQUA">SKIN AQUA</option>
+              <option value="SUNPLAY">SUNPLAY</option>
             </select>
           </div>
         </div>
@@ -1137,7 +1196,7 @@ Laporan ini dihasilkan secara dinamis berdasarkan data aktual ledger Anda. Hak C
               : 'text-slate-550 hover:text-slate-800 hover:bg-slate-100 font-bold'
           }`}
         >
-          Proyeksi & Target Penjualan
+          Proyeksi & Target Bulanan
         </button>
         <button
           onClick={() => setActiveTabName('sku_outlets')}
@@ -1156,6 +1215,156 @@ Laporan ini dihasilkan secara dinamis berdasarkan data aktual ledger Anda. Hak C
 
       {activeTabName === 'forecasting' ? (
         <div className="space-y-6">
+          {/* New Target by Brand Table */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-3xs text-left space-y-3">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-1 w-full">
+              <div>
+                <h4 className="text-sm font-black text-slate-950 uppercase tracking-tight flex items-center gap-1.5">
+                  Tabel Target Bulanan per Brand (2026)
+                </h4>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wide block">
+                  Klik baris brand untuk mengaktifkan filter detail visualisasi dan model proyeksi di bawah.
+                </span>
+              </div>
+              
+              {/* Ultra-polished Compact Toggle */}
+              <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 self-end sm:self-auto shrink-0 shadow-3xs">
+                <button
+                  type="button"
+                  onClick={() => setTargetViewFormat('millions')}
+                  className={`px-2.5 py-1 text-[8.5px] font-black uppercase tracking-wider rounded-md transition-all cursor-pointer ${
+                    targetViewFormat === 'millions'
+                      ? 'bg-white text-slate-950 shadow-3xs font-black'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Ringkas (Jt)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTargetViewFormat('full')}
+                  className={`px-2.5 py-1 text-[8.5px] font-black uppercase tracking-wider rounded-md transition-all cursor-pointer ${
+                    targetViewFormat === 'full'
+                      ? 'bg-white text-slate-950 shadow-3xs font-black'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Penuh (Rp)
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto border border-slate-100 rounded-xl no-scrollbar">
+              <table className="w-full text-left font-sans text-[8px] border-collapse min-w-[850px]">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-150 text-slate-500 font-extrabold uppercase text-[7.5px] tracking-wider">
+                    <th className="py-1 px-1.5 sticky left-0 bg-slate-50 z-10 border-r border-slate-150 shadow-[1px_0_0_0_rgba(226,232,240,1)] font-extrabold w-[110px] min-w-[110px] max-w-[110px] truncate">Brand / Kategori</th>
+                    <th className="py-1 px-1 text-right font-extrabold uppercase text-[7.5px] tracking-tight">Jan</th>
+                    <th className="py-1 px-1 text-right font-extrabold uppercase text-[7.5px] tracking-tight">Feb</th>
+                    <th className="py-1 px-1 text-right font-extrabold uppercase text-[7.5px] tracking-tight">Mar</th>
+                    <th className="py-1 px-1 text-right font-extrabold uppercase text-[7.5px] tracking-tight">Apr</th>
+                    <th className="py-1 px-1 text-right font-extrabold uppercase text-[7.5px] tracking-tight">Mei</th>
+                    <th className="py-1 px-1 text-right font-extrabold uppercase text-[7.5px] tracking-tight">Jun</th>
+                    <th className="py-1 px-1 text-right font-extrabold uppercase text-[7.5px] tracking-tight">Jul</th>
+                    <th className="py-1 px-1 text-right font-extrabold uppercase text-[7.5px] tracking-tight">Agt</th>
+                    <th className="py-1 px-1 text-right font-extrabold uppercase text-[7.5px] tracking-tight">Sept</th>
+                    <th className="py-1 px-1 text-right font-extrabold uppercase text-[7.5px] tracking-tight">Okt</th>
+                    <th className="py-1 px-1 text-right font-extrabold uppercase text-[7.5px] tracking-tight">Nov</th>
+                    <th className="py-1 px-1 text-right font-extrabold uppercase text-[7.5px] tracking-tight">Des</th>
+                    <th className="py-1 px-1.5 text-right bg-slate-100/50 font-extrabold w-[90px] min-w-[90px]">Total Setahun</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {[
+                    { id: 'ACNES', name: 'ACNES' },
+                    { id: 'HADA LABO', name: 'HADA LABO' },
+                    { id: 'KHALISA', name: 'KHALISA' },
+                    { id: 'LIP ICE', name: 'LIP ICE' },
+                    { id: 'MELANO CC', name: 'MELANO CC' },
+                    { id: 'MENTHOLATUM', name: 'MENTHOLATUM' },
+                    { id: 'OXY', name: 'OXY' },
+                    { id: 'ROHTO EYE CARE', name: 'ROHTO EYE CARE' },
+                    { id: 'ROHTO EYE FLUSH', name: 'ROHTO EYE FLUSH' },
+                    { id: 'SELSUN', name: 'SELSUN' },
+                    { id: 'SKIN AQUA', name: 'SKIN AQUA' },
+                    { id: 'SUNPLAY', name: 'SUNPLAY' },
+                    { id: 'ALL', name: 'TOTAL', isTotal: true }
+                  ].map((b) => {
+                    const isSelected = selectedBrand === b.id;
+                    const tableMonthsList = [
+                      "Jan '26", "Feb '26", "Mar '26", "Apr '26", "May '26", "Jun '26", 
+                      "Jul '26", "Aug '26", "Sep '26", "Oct '26", "Nov '26", "Dec '26"
+                    ];
+
+                    const isTotalBrand = b.isTotal || b.id === 'ALL';
+                    const targetMap = tableMonthsList.reduce((acc, mKey) => {
+                      const targetKey = `${b.id}_${mKey}`;
+                      if (monthlyTargets[targetKey] !== undefined) {
+                        acc[mKey] = monthlyTargets[targetKey];
+                      } else if (isTotalBrand) {
+                        // For TOTAL brand, if not explicitly edited, sum up all other individual brands' targets!
+                        const otherBrands = [
+                          'ACNES', 'HADA LABO', 'KHALISA', 'LIP ICE', 'MELANO CC', 
+                          'MENTHOLATUM', 'OXY', 'ROHTO EYE CARE', 'ROHTO EYE FLUSH', 
+                          'SELSUN', 'SKIN AQUA', 'SUNPLAY'
+                        ];
+                        const sumOthers = otherBrands.reduce((sum, otherId) => {
+                          const otherKey = `${otherId}_${mKey}`;
+                          return sum + (monthlyTargets[otherKey] !== undefined
+                            ? monthlyTargets[otherKey]
+                            : (DEFAULT_2026_BRAND_TARGETS[otherId]?.[mKey] || 0));
+                        }, 0);
+                        acc[mKey] = sumOthers;
+                      } else {
+                        acc[mKey] = DEFAULT_2026_BRAND_TARGETS[b.id]?.[mKey] || 0;
+                      }
+                      return acc;
+                    }, {} as Record<string, number>);
+
+                    const annualTotal = Object.values(targetMap).reduce((sum, val) => sum + val, 0);
+
+                    return (
+                      <tr 
+                        key={b.id} 
+                        onClick={() => setSelectedBrand(b.id)}
+                        className={`cursor-pointer transition-colors ${
+                          b.isTotal 
+                            ? 'bg-slate-100/75 font-black text-slate-950 hover:bg-slate-150/80' 
+                            : isSelected 
+                            ? 'bg-indigo-50/70 font-bold text-indigo-950 hover:bg-indigo-100/70' 
+                            : 'hover:bg-slate-50/50'
+                        }`}
+                      >
+                        <td className={`py-1 px-1.5 sticky left-0 z-10 font-extrabold border-r border-slate-150 shadow-[1px_0_0_0_rgba(226,232,240,1)] text-[8px] w-[110px] min-w-[110px] max-w-[110px] truncate ${
+                          b.isTotal 
+                            ? 'bg-slate-100 text-slate-950 font-black' 
+                            : isSelected 
+                            ? 'bg-indigo-50 text-indigo-700 font-black border-l-4 border-l-indigo-600 pl-1.5' 
+                            : 'bg-white text-slate-800 font-black'
+                        }`}>
+                          {b.name}
+                        </td>
+                        {tableMonthsList.map(mKey => {
+                          const val = targetMap[mKey] || 0;
+                          return (
+                            <td key={mKey} className="py-1 px-1 text-right font-mono whitespace-nowrap text-[8px] tracking-tighter">
+                              {formatTargetVal(val)}
+                            </td>
+                          );
+                        })}
+                        <td className={`py-1 px-1.5 text-right font-mono font-black text-[8px] tracking-tighter w-[90px] min-w-[90px] ${
+                          b.isTotal ? 'text-slate-950 bg-slate-150/50' : 'text-indigo-700 bg-slate-100/40'
+                        }`}>
+                          {formatTargetVal(annualTotal)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           {/* Primary header widget layout */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             
@@ -1539,6 +1748,58 @@ Laporan ini dihasilkan secara dinamis berdasarkan data aktual ledger Anda. Hak C
                       </tr>
                     );
                   })}
+
+                  {/* Total summary row */}
+                  {(() => {
+                    const totalRevenue = visibleChartData.reduce((sum, item) => {
+                      const isForecast = item.isForecast;
+                      const revenueAmount = isForecast ? item.extrapolation : (item.actual || 0);
+                      return sum + (revenueAmount || 0);
+                    }, 0);
+
+                    const totalTarget = visibleChartData.reduce((sum, item) => {
+                      return sum + (item.target || 0);
+                    }, 0);
+
+                    return (
+                      <tr className="bg-slate-150/50 font-black text-slate-900 border-t border-slate-200">
+                        <td className="py-2.5 px-4 flex items-center gap-1.5 align-middle font-black text-slate-950">
+                          <TrendingUp className="w-3.5 h-3.5 text-indigo-750" />
+                          <span>TOTAL SETAHUN (2026)</span>
+                        </td>
+                        <td className="py-2.5 px-4 text-center align-middle">
+                          <span className="bg-indigo-50 text-indigo-800 text-[8.5px] px-2 py-0.5 rounded-md font-black uppercase tracking-wider border border-indigo-150">
+                            Konsolidasi
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 text-right font-mono font-black text-slate-950 align-middle">
+                          {formatCurrency(totalRevenue)}
+                        </td>
+                        <td className="py-2.5 px-4 text-center align-middle">
+                          <span className="font-mono font-black text-indigo-700 text-[11px]">
+                            {formatCurrency(totalTarget)}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 text-center align-middle">
+                          {totalTarget > 0 ? (
+                            <div className="flex flex-col items-center gap-1">
+                              <span className={`text-[10px] font-black font-mono px-2 py-0.5 rounded-md inline-block leading-none ${
+                                (totalRevenue / totalTarget * 100) >= 100 
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
+                                  : (totalRevenue / totalTarget * 100) >= 75 
+                                  ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                                  : 'bg-amber-50 text-amber-700 border border-amber-100'
+                              }`}>
+                                {(totalRevenue / totalTarget * 100).toFixed(1)}%
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 font-bold">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })()}
                 </tbody>
               </table>
             </div>

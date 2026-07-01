@@ -687,7 +687,7 @@ export default function DashboardCharts({ records }: DashboardChartsProps) {
           <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Group Splits</h3>
           <span className="text-[10px] text-slate-400 font-semibold font-mono">Top Groups</span>
         </div>
-        <div className="space-y-2.5 font-sans flex-1 min-h-[240px] max-h-[250px] overflow-y-auto pr-1 mb-3">
+        <div className="space-y-2.5 font-sans flex-1 min-h-[340px] max-h-[360px] overflow-y-auto pr-1">
           {groupSummaries.slice(0, 10).map((cat, idx) => {
             const pct = cat.percentage;
             const barColors = ['bg-indigo-600', 'bg-emerald-500', 'bg-amber-500', 'bg-pink-500', 'bg-blue-500', 'bg-violet-500', 'bg-rose-500'];
@@ -709,10 +709,6 @@ export default function DashboardCharts({ records }: DashboardChartsProps) {
           {groupSummaries.length === 0 && (
             <p className="text-xs text-slate-400">No Group Data Found.</p>
           )}
-        </div>
-
-        <div className="mt-auto shrink-0 p-3 bg-indigo-50/50 rounded-2xl border border-indigo-100/50 text-[11px] leading-relaxed text-indigo-700 font-medium font-sans">
-          <strong>Secure Studio:</strong> Data remains client-side. Convert spreadsheets instantly here.
         </div>
       </div>
 
@@ -750,17 +746,17 @@ export default function DashboardCharts({ records }: DashboardChartsProps) {
         {/* Dynamic Warning Alert on severe client concentration risk */}
 
         <div className="bg-white border border-slate-150 rounded-2xl overflow-hidden shadow-3xs">
-          <div className="overflow-x-auto">
+          <div className={`overflow-x-auto ${showAllOutlets ? 'max-h-[350px] overflow-y-auto' : ''}`}>
             <table className="w-full text-left text-[11px] border-collapse table-fixed min-w-[750px]">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-500 bg-slate-50 font-extrabold uppercase text-[9px] tracking-wider">
-                  <th className="py-2.5 px-3" style={{ width: '60px' }}>Rank</th>
-                  <th className="py-2.5 px-3" style={{ width: '110px' }}>ID Outlet</th>
-                  <th className="py-2.5 px-3" style={{ width: '280px' }}>Nama Toko / Outlet</th>
-                  <th className="py-2.5 px-3 text-right" style={{ width: '130px' }}>Total Net Sales</th>
-                  <th className="py-2.5 px-3 text-center" style={{ width: '90px' }}>Share %</th>
-                  <th className="py-2.5 px-3 text-center" style={{ width: '110px' }}>Kumulatif %</th>
-                  <th className="py-2.5 px-3 text-center" style={{ width: '130px' }}>Status Klasifikasi</th>
+              <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200">
+                <tr className="text-slate-500 font-extrabold uppercase text-[9px] tracking-wider">
+                  <th className="py-2.5 px-3 bg-slate-50" style={{ width: '60px' }}>Rank</th>
+                  <th className="py-2.5 px-3 bg-slate-50" style={{ width: '110px' }}>ID Outlet</th>
+                  <th className="py-2.5 px-3 bg-slate-50" style={{ width: '280px' }}>Nama Toko / Outlet</th>
+                  <th className="py-2.5 px-3 text-right bg-slate-50" style={{ width: '130px' }}>Total Net Sales</th>
+                  <th className="py-2.5 px-3 text-center bg-slate-50" style={{ width: '90px' }}>Share %</th>
+                  <th className="py-2.5 px-3 text-center bg-slate-50" style={{ width: '110px' }}>Kumulatif %</th>
+                  <th className="py-2.5 px-3 text-center bg-slate-50" style={{ width: '130px' }}>Status Klasifikasi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -777,8 +773,8 @@ export default function DashboardCharts({ records }: DashboardChartsProps) {
                       </td>
                       <td className="py-2.5 px-3 font-bold text-slate-900 truncate" title={item.name}>
                         <div className="flex items-center gap-1.5">
-                          {item.isPareto && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 animate-pulse"></span>}
-                          <span className="truncate">{item.name}</span>
+                           {item.isPareto && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 animate-pulse"></span>}
+                           <span className="truncate">{item.name}</span>
                         </div>
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono text-[11px] text-slate-950 font-bold">

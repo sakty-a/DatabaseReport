@@ -26,6 +26,46 @@ import {
 import { SalesRecord } from '../types';
 import { formatCurrency } from '../utils';
 import { CASH_BACK_PARTICIPANTS, WHITE_BONUS_PARTICIPANTS } from './programParticipants';
+import { classifyRecord } from './BrandInformation';
+
+function getBrandColor(brandName: string): string {
+  const name = brandName.toLowerCase().trim();
+  
+  if (name.includes('acnes')) return 'bg-emerald-500';
+  if (name.includes('hada labo') || name.includes('hadalabo')) return 'bg-sky-400';
+  if (name.includes('khalisa')) return 'bg-pink-400';
+  if (name.includes('lip ice') || name.includes('lipice') || name.includes('lip on lip')) return 'bg-rose-500';
+  if (name.includes('melano')) return 'bg-amber-500';
+  if (name.includes('selsun')) return 'bg-teal-600';
+  if (name.includes('eye care')) return 'bg-indigo-600';
+  if (name.includes('eye wash') || name.includes('eye flush')) return 'bg-cyan-500';
+  if (name.includes('skin aqua dan sunplay')) return 'bg-violet-500';
+  if (name.includes('skin aqua')) return 'bg-blue-500';
+  if (name.includes('sunplay')) return 'bg-orange-500';
+  if (name.includes('oxy')) return 'bg-red-600';
+  if (name.includes('mentholatum')) return 'bg-green-700';
+  
+  const colors = [
+    'bg-indigo-500', 
+    'bg-violet-500', 
+    'bg-fuchsia-500', 
+    'bg-purple-500', 
+    'bg-pink-500', 
+    'bg-rose-500', 
+    'bg-amber-500', 
+    'bg-emerald-500', 
+    'bg-teal-500', 
+    'bg-cyan-500', 
+    'bg-sky-500', 
+    'bg-blue-500'
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+}
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -406,7 +446,8 @@ export default function OutletSPG({ records }: OutletSPGProps) {
     const catsMap: Record<string, { name: string; revenue: number; qty: number; itemsCount: number }> = {};
     
     matchedRecordsOfSelected.forEach(r => {
-      const gName = r.group_name || 'Uncategorized';
+      const { catName } = classifyRecord(r.group_name || '', r.product || '');
+      const gName = catName;
       if (!catsMap[gName]) {
         catsMap[gName] = { name: gName, revenue: 0, qty: 0, itemsCount: 0 };
       }
@@ -832,9 +873,8 @@ export default function OutletSPG({ records }: OutletSPGProps) {
                 
                 {categorySummaryForOutlet.length > 0 ? (
                   <div className="space-y-3.5 max-h-[224px] overflow-y-auto pr-1">
-                    {categorySummaryForOutlet.map((cat, idx) => {
-                      const colors = ['bg-indigo-500', 'bg-emerald-500', 'bg-violet-500', 'bg-rose-500', 'bg-amber-550', 'bg-sky-500'];
-                      const colClass = colors[idx % colors.length];
+                    {categorySummaryForOutlet.map((cat) => {
+                      const colClass = getBrandColor(cat.name);
                       return (
                         <div key={cat.name} className="space-y-1.5">
                           <div className="flex justify-between items-center text-xs font-semibold text-slate-700">

@@ -398,10 +398,10 @@ export default function App() {
                   ? 'bg-indigo-600 text-white shadow-xs'
                   : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
               }`}
-              title="Analyze forecasting models: Linear Regression & Extrapolation forecasts"
+              title="Analyze forecasting models, brand targets, and details"
             >
               <Cpu className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Modeling 🔒</span>
+              <span>Detail 🔒</span>
             </button>
           </div>
 
@@ -456,7 +456,7 @@ export default function App() {
             )
           ) : activeTab === 'modeling' ? (
             !isUnlocked ? (
-              <AccessGate title="Modeling" onSuccess={handleUnlock} />
+              <AccessGate title="Detail" onSuccess={handleUnlock} />
             ) : (
               <ModelingFeature records={records} />
             )
