@@ -69,7 +69,7 @@ export function classifyRecord(groupName: string, productName: string): { catNam
 
   // 1. Eye care
   if (
-    grp.includes('EYE CARE') || 
+    (grp.includes('EYE CARE') || 
     prod.includes('COOL') || 
     prod.includes('C CUBE') || 
     prod.includes('C-CUBE') || 
@@ -80,7 +80,12 @@ export function classifyRecord(groupName: string, productName: string): { catNam
     prod.includes('ROHTO COOL') ||
     prod.includes('C CUB') ||
     prod.includes('RDF') ||
-    prod.includes('RVX')
+    prod.includes('RVX')) &&
+    !prod.includes('SUNPLAY') &&
+    !prod.includes('SKIN AQUA') &&
+    !prod.includes('SKINAQUA') &&
+    !grp.includes('SUNPLAY') &&
+    !grp.includes('SKIN AQUA')
   ) {
     // Avoid mixing Eye Flush into Eye Care drops
     if (prod.includes('FLUSH') || prod.includes('EYE FLUSH') || grp.includes('EYE FLUSH') || grp.includes('EYE WASH')) {
