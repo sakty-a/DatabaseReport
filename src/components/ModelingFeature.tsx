@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, Fragment } from 'react';
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   ComposedChart, Line, Area, ReferenceLine
@@ -1908,8 +1908,8 @@ Laporan ini dihasilkan secara dinamis berdasarkan data aktual ledger Anda. Hak C
                       const isExpanded = expandedSku === sku.product;
 
                       return (
-                        <>
-                          <tr key={sku.product} className={`hover:bg-slate-50/40 transition-colors ${isExpanded ? 'bg-indigo-50/10' : ''}`}>
+                        <Fragment key={sku.product}>
+                          <tr className={`hover:bg-slate-50/40 transition-colors ${isExpanded ? 'bg-indigo-50/10' : ''}`}>
                             <td className="py-2.5 px-4 max-w-[240px]">
                               <div className="font-extrabold text-slate-900 leading-normal truncate" title={sku.product}>
                                 {sku.product}
@@ -2018,7 +2018,7 @@ Laporan ini dihasilkan secara dinamis berdasarkan data aktual ledger Anda. Hak C
                               </td>
                             </tr>
                           )}
-                        </>
+                        </Fragment>
                       );
                     })
                   )}
