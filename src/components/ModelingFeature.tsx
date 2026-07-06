@@ -1111,23 +1111,6 @@ Laporan ini dihasilkan secara dinamis berdasarkan data aktual ledger Anda. Hak C
     URL.revokeObjectURL(url);
   };
 
-  if (overallMonths.length < 2) {
-    return (
-      <div className="bg-white border border-slate-200 rounded-3xl p-8 text-center space-y-4 max-w-2xl mx-auto shadow-xs my-8">
-        <div className="p-4 bg-amber-50 rounded-full text-amber-600 w-16 h-16 flex items-center justify-center mx-auto">
-          <AlertTriangle className="w-8 h-8" />
-        </div>
-        <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">Data Kurang Memadai</h3>
-        <p className="text-xs text-slate-500 font-semibold leading-relaxed max-w-md mx-auto">
-          Pemodelan statistik dan ramalan membutuhkan minimal <strong>2 bulan bersambung</strong> data penjualan historis di dalam buku kerja Anda. 
-        </p>
-        <div className="p-3 bg-slate-50 border border-slate-150 rounded-2xl text-[11px] text-slate-550 leading-relaxed font-semibold">
-          💡 Tips: Silakan upload file ledger penjualan kustom Anda atau klik tombol <strong>[Reset with Sample Data]</strong> di bagian kanan atas halaman utama untuk langsung mencoba simulasi regresi ini!
-        </div>
-      </div>
-    );
-  }
-
   const {
     chartData,
     rSquared,
@@ -1214,7 +1197,21 @@ Laporan ini dihasilkan secara dinamis berdasarkan data aktual ledger Anda. Hak C
       </div>
 
       {activeTabName === 'forecasting' ? (
-        <div className="space-y-6">
+        overallMonths.length < 2 ? (
+          <div className="bg-white border border-slate-200 rounded-3xl p-8 text-center space-y-4 max-w-2xl mx-auto shadow-xs my-8 text-left">
+            <div className="p-4 bg-amber-50 rounded-full text-amber-600 w-16 h-16 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-8 h-8" />
+            </div>
+            <h3 className="text-base font-black text-slate-900 uppercase tracking-tight text-center">Data Kurang Memadai</h3>
+            <p className="text-xs text-slate-500 font-semibold leading-relaxed max-w-md mx-auto text-center">
+              Pemodelan statistik, proyeksi, dan target bulanan membutuhkan minimal <strong>2 bulan bersambung</strong> data penjualan historis di dalam buku kerja Anda. 
+            </p>
+            <div className="p-3 bg-slate-50 border border-slate-150 rounded-2xl text-[11px] text-slate-550 leading-relaxed font-semibold text-center">
+              💡 Tips: Silakan upload file ledger penjualan kustom Anda atau klik tombol <strong>[Reset with Sample Data]</strong> di bagian kanan atas halaman utama untuk langsung mencoba simulasi regresi ini!
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6">
           {/* New Target by Brand Table */}
           <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-3xs text-left space-y-3">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-1 w-full">
@@ -1810,6 +1807,7 @@ Laporan ini dihasilkan secara dinamis berdasarkan data aktual ledger Anda. Hak C
             </div>
           </div>
         </div>
+        )
       ) : (
         <div className="space-y-6">
           {/* SKU SEBARAN OUTLET PANEL */}
