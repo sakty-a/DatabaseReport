@@ -11,12 +11,389 @@ import {
 import {
   TrendingUp, TrendingDown, HelpCircle, AlertTriangle, Cpu, CheckCircle2,
   Sliders, Calendar, ArrowRight, Sparkles, BarChart2, Info, ChevronRight, ChevronLeft,
-  Layers, Award, ShieldAlert, DollarSign, Lightbulb, BookOpen, Store, FileDown
+  Layers, Award, ShieldAlert, DollarSign, Lightbulb, BookOpen, Store, FileDown, MapPin,
+  Compass, Navigation, Truck, LocateFixed, Globe, Target, ChevronDown, ChevronUp, LayoutGrid
 } from 'lucide-react';
 import { SalesRecord, MonthlyTrend } from '../types';
 import { calculateMonthlyTrends, formatCurrency } from '../utils';
 import { CASH_BACK_PARTICIPANTS, WHITE_BONUS_PARTICIPANTS, TOUR_BELGIA_PARTICIPANTS, TOUR_MALAYSIA_PARTICIPANTS } from './programParticipants';
 import { classifyRecord } from './BrandInformation';
+import { RealAreaMap } from './RealAreaMap';
+
+export interface AreaBoundaryInfo {
+  code: string;
+  shortName: string;
+  fullName: string;
+  north: string;
+  south: string;
+  east: string;
+  west: string;
+  hubType: string;
+  corridor: string;
+  coord: string;
+  svgPos: { x: number; y: number };
+  color: string;
+}
+
+export const EAST_JAVA_BOUNDARIES: Record<string, AreaBoundaryInfo> = {
+  'SURABAYA PUSAT': {
+    code: 'SBP',
+    shortName: 'Surabaya Pusat',
+    fullName: 'Rayon Surabaya Pusat',
+    north: 'Surabaya Utara & Selat Madura',
+    south: 'Surabaya Selatan & Rungkut',
+    east: 'Selat Madura / MERR',
+    west: 'Surabaya Barat',
+    hubType: 'Pusat Bisnis CBD & Retail Modern Surabaya',
+    corridor: 'Jl. Pemuda - Basuki Rahmat - Mayjen Sungkono',
+    coord: '7°15\'S 112°44\'E',
+    svgPos: { x: 72, y: 38 },
+    color: 'from-indigo-600 to-blue-700'
+  },
+  'SURABAYA UTARA': {
+    code: 'SBU',
+    shortName: 'Surabaya Utara',
+    fullName: 'Rayon Surabaya Utara',
+    north: 'Pelabuhan Tanjung Perak & Selat Madura',
+    south: 'Surabaya Pusat',
+    east: 'Surabaya-Bangkalan (Suramadu)',
+    west: 'Surabaya Barat-Gresik',
+    hubType: 'Pusat Logistik Maritim & Pergudangan Utara',
+    corridor: 'Jl. Perak Timur - Rajawali - Akses Suramadu',
+    coord: '7°12\'S 112°44\'E',
+    svgPos: { x: 72, y: 24 },
+    color: 'from-sky-600 to-blue-800'
+  },
+  'SURABAYA SELATAN': {
+    code: 'SBS',
+    shortName: 'Surabaya Selatan',
+    fullName: 'Rayon Surabaya Selatan',
+    north: 'Surabaya Pusat',
+    south: 'Sidoarjo-Surabaya Pusat',
+    east: 'Rungkut-Sidoarjo',
+    west: 'Surabaya Barat',
+    hubType: 'Kawasan Komersial & Transit Selatan',
+    corridor: 'Jl. A. Yani - Wonokromo - Waru',
+    coord: '7°18\'S 112°44\'E',
+    svgPos: { x: 72, y: 50 },
+    color: 'from-blue-600 to-indigo-800'
+  },
+  'SURABAYA BARAT': {
+    code: 'SBB',
+    shortName: 'Surabaya Barat',
+    fullName: 'Rayon Surabaya Barat',
+    north: 'Surabaya Barat-Gresik',
+    south: 'Krian-Mojokerto',
+    east: 'Surabaya Pusat',
+    west: 'Kabupaten Gresik',
+    hubType: 'Kawasan Hunian Modern & Ritel Barat',
+    corridor: 'HR Muhammad - Mayjen Yono Soewoyo',
+    coord: '7°16\'S 112°40\'E',
+    svgPos: { x: 58, y: 38 },
+    color: 'from-indigo-600 to-purple-600'
+  },
+  'SURABAYA BARAT-GRESIK': {
+    code: 'SBG',
+    shortName: 'Sby Barat-Gresik',
+    fullName: 'Rayon Surabaya Barat - Gresik',
+    north: 'Lamongan-Tuban & Laut Jawa',
+    south: 'Surabaya Barat',
+    east: 'Surabaya Utara',
+    west: 'Lamongan-Tuban',
+    hubType: 'Koridor Industri & Pelabuhan Gresik',
+    corridor: 'Jl. Veteran - Bypass Kebomas - JIIPE',
+    coord: '7°10\'S 112°38\'E',
+    svgPos: { x: 56, y: 22 },
+    color: 'from-cyan-600 to-teal-700'
+  },
+  'SURABAYA-BANGKALAN': {
+    code: 'SBK',
+    shortName: 'Sby-Bangkalan',
+    fullName: 'Rayon Surabaya - Bangkalan',
+    north: 'Laut Jawa',
+    south: 'Sampang-Pamekasan-Sumenep',
+    east: 'Sampang-Pamekasan-Sumenep',
+    west: 'Surabaya Utara (Suramadu)',
+    hubType: 'Gerbang Suramadu & Akses Madura Barat',
+    corridor: 'Jembatan Suramadu - Akses Bangkalan',
+    coord: '7°02\'S 112°45\'E',
+    svgPos: { x: 82, y: 18 },
+    color: 'from-emerald-600 to-teal-800'
+  },
+  'SAMPANG-PAMEKASAN-SUMENEP': {
+    code: 'MD3',
+    shortName: 'Madura (Smp-Pmk-Smn)',
+    fullName: 'Rayon Sampang - Pamekasan - Sumenep',
+    north: 'Laut Jawa',
+    south: 'Selat Madura',
+    east: 'Laut Bali (Sumenep Ujung)',
+    west: 'Surabaya-Bangkalan',
+    hubType: 'Koridor Distribusi Utama Pulau Madura',
+    corridor: 'Jalur Arteri Selatan Madura',
+    coord: '7°08\'S 113°30\'E',
+    svgPos: { x: 92, y: 28 },
+    color: 'from-teal-600 to-emerald-700'
+  },
+  'SIDOARJO': {
+    code: 'SDA',
+    shortName: 'Sidoarjo',
+    fullName: 'Rayon Sidoarjo',
+    north: 'Sidoarjo-Surabaya Pusat',
+    south: 'Kabupaten Pasuruan / Porong',
+    east: 'Rungkut-Sidoarjo',
+    west: 'Krian-Mojokerto',
+    hubType: 'Pusat Ritel & Aglomerasi Sidoarjo',
+    corridor: 'Jl. Raya Jenggolo - Candi - Porong',
+    coord: '7°27\'S 112°43\'E',
+    svgPos: { x: 72, y: 76 },
+    color: 'from-emerald-600 to-green-700'
+  },
+  'RUNGKUT-SIDOARJO': {
+    code: 'RSD',
+    shortName: 'Rungkut-Sidoarjo',
+    fullName: 'Rayon Rungkut - Sidoarjo',
+    north: 'Surabaya Selatan & MERR',
+    south: 'Sedati & Sidoarjo Timur',
+    east: 'Selat Madura & Bandara Juanda',
+    west: 'Sidoarjo Kota',
+    hubType: 'Kawasan Industri SIER & Ritel Pesisir',
+    corridor: 'Jl. Rungkut Industri - Akses Juanda',
+    coord: '7°20\'S 112°46\'E',
+    svgPos: { x: 84, y: 64 },
+    color: 'from-blue-600 to-indigo-700'
+  },
+  'SIDOARJO-SURABAYA PUSAT': {
+    code: 'SSP',
+    shortName: 'Sidoarjo-Sby Pusat',
+    fullName: 'Rayon Sidoarjo - Surabaya Pusat',
+    north: 'Surabaya Pusat',
+    south: 'Sidoarjo Kota',
+    east: 'Rungkut-Sidoarjo',
+    west: 'Surabaya Selatan',
+    hubType: 'Koridor Perbatasan Waru & Gedangan',
+    corridor: 'Jl. Ahmad Yani Waru - Gedangan',
+    coord: '7°22\'S 112°43\'E',
+    svgPos: { x: 72, y: 62 },
+    color: 'from-sky-600 to-indigo-600'
+  },
+  'KRIAN-MOJOKERTO': {
+    code: 'KMJ',
+    shortName: 'Krian-Mojokerto',
+    fullName: 'Rayon Krian - Mojokerto',
+    north: 'Surabaya Barat-Gresik',
+    south: 'Kabupaten Pasuruan / Mojokerto Selatan',
+    east: 'Sidoarjo',
+    west: 'Jombang',
+    hubType: 'Koridor Industri & Ritel Jalur Tengah',
+    corridor: 'Jl. Raya Krian - Bypass Mojokerto',
+    coord: '7°24\'S 112°32\'E',
+    svgPos: { x: 48, y: 52 },
+    color: 'from-violet-600 to-purple-700'
+  },
+  'JOMBANG': {
+    code: 'JBG',
+    shortName: 'Jombang',
+    fullName: 'Rayon Jombang',
+    north: 'Lamongan-Tuban',
+    south: 'Kabupaten Kediri',
+    east: 'Krian-Mojokerto',
+    west: 'Kabupaten Nganjuk',
+    hubType: 'Hub Agropolitan & Distribusi Jombang',
+    corridor: 'Tol Trans-Jawa & Jalur Provinsi Ploso-Jombang',
+    coord: '7°33\'S 112°14\'E',
+    svgPos: { x: 34, y: 56 },
+    color: 'from-amber-600 to-orange-700'
+  },
+  'LAMONGAN-TUBAN': {
+    code: 'LTB',
+    shortName: 'Lamongan-Tuban',
+    fullName: 'Rayon Lamongan - Tuban',
+    north: 'Laut Jawa (Pesisir Pantura)',
+    south: 'Jombang & Bojonegoro',
+    east: 'Surabaya Barat-Gresik',
+    west: 'Tuban-Bojonegoro',
+    hubType: 'Hub Logistik Pantura & Babat',
+    corridor: 'Jalur Nasional Pantura Lamongan-Tuban',
+    coord: '6°53\'S 112°03\'E',
+    svgPos: { x: 38, y: 18 },
+    color: 'from-cyan-600 to-blue-700'
+  },
+  'TUBAN-BOJONEGORO': {
+    code: 'TBB',
+    shortName: 'Tuban-Bojonegoro',
+    fullName: 'Rayon Tuban - Bojonegoro',
+    north: 'Laut Jawa (Pesisir Utara)',
+    south: 'Bojonegoro',
+    east: 'Lamongan-Tuban',
+    west: 'Kabupaten Rembang & Blora (Jateng)',
+    hubType: 'Koridor Pesisir Barat & Industri Semen',
+    corridor: 'Jl. Raya Tuban - Bojonegoro - Rembang',
+    coord: '7°00\'S 111°56\'E',
+    svgPos: { x: 18, y: 18 },
+    color: 'from-amber-600 to-yellow-700'
+  },
+  'BOJONEGORO': {
+    code: 'BJN',
+    shortName: 'Bojonegoro',
+    fullName: 'Rayon Bojonegoro',
+    north: 'Tuban-Bojonegoro',
+    south: 'Kabupaten Nganjuk & Madiun',
+    east: 'Jombang & Lamongan',
+    west: 'Kabupaten Blora (Jawa Tengah)',
+    hubType: 'Pusat Ritel & Koridor Energi Bojonegoro',
+    corridor: 'Jl. Raya Cepu - Bojonegoro - Babat',
+    coord: '7°09\'S 111°53\'E',
+    svgPos: { x: 18, y: 44 },
+    color: 'from-amber-600 to-orange-700'
+  },
+  'CPO DK': {
+    code: 'CPO',
+    shortName: 'CPO DK',
+    fullName: 'Rayon CPO / Direct Key Accounts',
+    north: 'Surabaya Selatan & Waru Utara',
+    south: 'Sidoarjo Kota (Porong/Candi)',
+    east: 'Gedangan & Rungkut SIER',
+    west: 'Krian & Taman Sidoarjo',
+    hubType: 'Direct Channel & Key Accounts (Waru Sidoarjo Hub)',
+    corridor: 'Jl. Raya Waru - Bundaran Waru, Sidoarjo',
+    coord: '-7.366005, 112.729817 (Waru, Sidoarjo)',
+    svgPos: { x: 28, y: 80 },
+    color: 'from-amber-600 to-indigo-700'
+  },
+  'KANTOR': {
+    code: 'KTR',
+    shortName: 'Kantor Pusat',
+    fullName: 'Rayon Kantor / Internal Direct',
+    north: 'Surabaya Selatan',
+    south: 'Sidoarjo Kota',
+    east: 'Gedangan',
+    west: 'Waru Barat',
+    hubType: 'Penjualan Direct Kantor Pusat & Admin (Waru Sidoarjo)',
+    corridor: 'Jl. Raya Waru / Bungurasih, Sidoarjo',
+    coord: '-7.366005, 112.729817 (Waru, Sidoarjo)',
+    svgPos: { x: 48, y: 80 },
+    color: 'from-slate-700 to-amber-900'
+  }
+};
+
+export function normalizeRayonName(raw: string): string {
+  if (!raw) return '';
+  const u = raw.toUpperCase().trim();
+
+  // If already matches an exact key in EAST_JAVA_BOUNDARIES
+  if (EAST_JAVA_BOUNDARIES[u]) {
+    return u;
+  }
+
+  // Exact code matches
+  if (u === 'SSP' || u === 'SIDOARJO-SBY PUSAT' || u === 'SIDOARJO - SBY PUSAT' || u === 'SIDOARJO-SBYPUSAT') return 'SIDOARJO-SURABAYA PUSAT';
+  if (u === 'SBP') return 'SURABAYA PUSAT';
+  if (u === 'SBU') return 'SURABAYA UTARA';
+  if (u === 'SBS') return 'SURABAYA SELATAN';
+  if (u === 'SBB') return 'SURABAYA BARAT';
+  if (u === 'SBG') return 'SURABAYA BARAT-GRESIK';
+  if (u === 'SBK') return 'SURABAYA-BANGKALAN';
+  if (u === 'MD3') return 'SAMPANG-PAMEKASAN-SUMENEP';
+  if (u === 'SDA') return 'SIDOARJO';
+  if (u === 'RSD') return 'RUNGKUT-SIDOARJO';
+  if (u === 'KMJ') return 'KRIAN-MOJOKERTO';
+  if (u === 'JBG') return 'JOMBANG';
+  if (u === 'LTB') return 'LAMONGAN-TUBAN';
+  if (u === 'TBB') return 'TUBAN-BOJONEGORO';
+  if (u === 'BJN') return 'BOJONEGORO';
+  if (u === 'CPO' || u === 'CPO DK') return 'CPO DK';
+  if (u === 'KTR' || u === 'KANTOR') return 'KANTOR';
+
+  // 1. CRITICAL FIX: SIDOARJO-SURABAYA PUSAT must be checked BEFORE SURABAYA PUSAT!
+  if (
+    u.includes('SIDOARJO-SURABAYA PUSAT') ||
+    u.includes('SIDOARJO - SURABAYA PUSAT') ||
+    u.includes('SIDOARJO-SBY PUSAT') ||
+    u.includes('SIDOARJO - SBY PUSAT') ||
+    u.includes('SIDOARJO SBY PUSAT') ||
+    u.includes('SIDOARJO SURABAYA PUSAT') ||
+    ((u.includes('SIDOARJO') || u.includes('SDA')) && (u.includes('SURABAYA PUSAT') || u.includes('SBY PUSAT') || u.includes('PUSAT')))
+  ) {
+    return 'SIDOARJO-SURABAYA PUSAT';
+  }
+
+  // 2. SURABAYA BARAT-GRESIK
+  if (u.includes('BARAT-GRESIK') || u.includes('BARAT GRESIK') || u.includes('GRESIK') || u.includes('SBG')) {
+    return 'SURABAYA BARAT-GRESIK';
+  }
+
+  // 3. SURABAYA-BANGKALAN
+  if (u.includes('BANGKALAN') || u.includes('SURAMADU') || u.includes('SBK')) {
+    return 'SURABAYA-BANGKALAN';
+  }
+
+  // 4. SAMPANG-PAMEKASAN-SUMENEP
+  if (u.includes('SAMPANG') || u.includes('PAMEKASAN') || u.includes('SUMENEP') || u.includes('MADURA') || u.includes('MD3')) {
+    return 'SAMPANG-PAMEKASAN-SUMENEP';
+  }
+
+  // 5. RUNGKUT-SIDOARJO
+  if (u.includes('RUNGKUT')) {
+    return 'RUNGKUT-SIDOARJO';
+  }
+
+  // 6. KRIAN-MOJOKERTO
+  if (u.includes('KRIAN') || u.includes('MOJOKERTO') || u.includes('MJK') || u.includes('KMJ')) {
+    return 'KRIAN-MOJOKERTO';
+  }
+
+  // 7. LAMONGAN-TUBAN vs TUBAN-BOJONEGORO
+  if (u.includes('LAMONGAN') || u.includes('LTB')) {
+    return 'LAMONGAN-TUBAN';
+  }
+  if (u.includes('TUBAN') || u.includes('TBN') || u.includes('TBB')) {
+    return 'TUBAN-BOJONEGORO';
+  }
+
+  // 8. BOJONEGORO
+  if (u.includes('BOJONEGORO') || u.includes('BJN')) {
+    return 'BOJONEGORO';
+  }
+
+  // 9. JOMBANG
+  if (u.includes('JOMBANG') || u.includes('JBG')) {
+    return 'JOMBANG';
+  }
+
+  // 10. SURABAYA UTARA, SURABAYA SELATAN, SURABAYA BARAT, SURABAYA PUSAT
+  if (u.includes('SBY UTARA') || u.includes('SURABAYA UTARA')) {
+    return 'SURABAYA UTARA';
+  }
+  if (u.includes('SBY SELATAN') || u.includes('SURABAYA SELATAN')) {
+    return 'SURABAYA SELATAN';
+  }
+  if (u.includes('SBY BARAT') || u.includes('SURABAYA BARAT')) {
+    return 'SURABAYA BARAT';
+  }
+  if (u.includes('SBY PUSAT') || u.includes('SURABAYA PUSAT')) {
+    return 'SURABAYA PUSAT';
+  }
+
+  // 11. SIDOARJO (generic)
+  if (u.includes('SIDOARJO') || u.includes('SDA')) {
+    return 'SIDOARJO';
+  }
+
+  // 12. SURABAYA (generic)
+  if (u.includes('SURABAYA') || u.includes('SBY')) {
+    return 'SURABAYA PUSAT';
+  }
+
+  // 13. CPO / KANTOR
+  if (u.includes('CPO') || u.includes('DIRECT') || u.includes('KEY ACCOUNT')) {
+    return 'CPO DK';
+  }
+  if (u.includes('KANTOR') || u.includes('HEAD OFFICE')) {
+    return 'KANTOR';
+  }
+
+  return raw;
+}
 
 interface ModelingFeatureProps {
   records: SalesRecord[];
@@ -306,7 +683,7 @@ export default function ModelingFeature({ records }: ModelingFeatureProps) {
   const [extrapolateMethod, setExtrapolateMethod] = useState<ExtrapolateType>('mom_delta');
   const [manualAdjustment, setManualAdjustment] = useState<number>(0); // manual optimism multiplier -50% to +50%
   const [applyCBProgramSurge, setApplyCBProgramSurge] = useState<boolean>(true);
-  const [activeTabName, setActiveTabName] = useState<'forecasting' | 'sku_outlets' | 'consulting_deck'>('forecasting');
+  const [activeTabName, setActiveTabName] = useState<'forecasting' | 'sku_outlets' | 'area_mapping' | 'consulting_deck'>('forecasting');
   const [activeSlideIndex, setActiveSlideIndex] = useState<number>(0);
 
   // SKU & Outlets mapping states
@@ -314,10 +691,19 @@ export default function ModelingFeature({ records }: ModelingFeatureProps) {
   const [expandedSku, setExpandedSku] = useState<string | null>(null);
   const [skuCurrentPage, setSkuCurrentPage] = useState<number>(1);
 
-  // Reset page and expanded SKU when active brand changes
+  // Mapping Area states
+  const [areaSearchQuery, setAreaSearchQuery] = useState<string>('');
+  const [expandedArea, setExpandedArea] = useState<string | null>(null);
+  const [areaCurrentPage, setAreaCurrentPage] = useState<number>(1);
+  const [selectedMapRegion, setSelectedMapRegion] = useState<string>('SURABAYA PUSAT');
+  const [showAllRayonCards, setShowAllRayonCards] = useState<boolean>(false);
+
+  // Reset page and expanded SKU/Area when active brand changes
   useEffect(() => {
     setSkuCurrentPage(1);
     setExpandedSku(null);
+    setAreaCurrentPage(1);
+    setExpandedArea(null);
   }, [selectedBrand]);
 
   // Load saved monthly targets from localStorage
@@ -561,6 +947,161 @@ export default function ModelingFeature({ records }: ModelingFeatureProps) {
   }, [filteredSkus, skuCurrentPage]);
 
   const totalSkuPages = Math.ceil(filteredSkus.length / ITEMS_PER_PAGE);
+
+  // Area Mapping calculation
+  const areaMappingList = useMemo(() => {
+    const areaGrouped: Record<string, {
+      areaName: string;
+      outletsMap: Record<string, { qty: number; revenue: number; name: string }>;
+      skuMap: Record<string, { qty: number; revenue: number }>;
+      totalQty: number;
+      totalRevenue: number;
+      transactionCount: number;
+    }> = {};
+
+    let totalBrandSales = 0;
+
+    filteredRecords.forEach(r => {
+      let sale = typeof r.ttl_sales === 'number' && !isNaN(r.ttl_sales) ? r.ttl_sales : 0;
+      if (sale === 0 && r.quantity > 0 && r.unitPrice > 0) {
+        sale = r.quantity * r.unitPrice;
+      }
+      const qty = typeof r.quantity === 'number' && !isNaN(r.quantity) ? r.quantity : 1;
+      const prodName = (r.product || 'UNSPECIFIED').trim();
+      const outletId = (r.customer_id || 'UMUM/GUEST').trim();
+
+      // Resolve area name from customFields or fallback matching
+      let areaName = '';
+      if (r.customFields) {
+        // Direct check for rayon_name or rayon first
+        const rayonVal = r.customFields['rayon_name'] || r.customFields['RAYON_NAME'] || r.customFields['Rayon Name'] || r.customFields['rayon'] || r.customFields['RAYON'];
+        if (rayonVal && String(rayonVal).trim()) {
+          areaName = normalizeRayonName(String(rayonVal).trim());
+        } else {
+          const areaKey = Object.keys(r.customFields).find(k => {
+            const kl = k.toLowerCase().replace(/_/g, '').replace(/[\s-]/g, '');
+            return ['rayonname', 'rayon', 'area', 'wilayah', 'cabang', 'region', 'kota', 'city', 'provinsi', 'province', 'branch', 'lokasi', 'zone', 'territory', 'distrik', 'district'].includes(kl);
+          });
+          if (areaKey && r.customFields[areaKey]) {
+            const valStr = String(r.customFields[areaKey]).trim();
+            if (valStr) areaName = normalizeRayonName(valStr);
+          }
+        }
+      }
+
+      if (!areaName) {
+        const upperId = outletId.toUpperCase();
+        const resolvedOutletName = outletNamesMap[upperId] || '';
+        const nameUpper = (resolvedOutletName || upperId).toUpperCase();
+
+        areaName = normalizeRayonName(nameUpper);
+        if (!areaName) {
+          const targetKeys = Object.keys(EAST_JAVA_BOUNDARIES);
+          const numCode = upperId.replace(/\D/g, '');
+          const idx = parseInt(numCode.slice(-1) || '0', 10) % targetKeys.length;
+          areaName = targetKeys[idx];
+        }
+      }
+
+      if (!areaGrouped[areaName]) {
+        areaGrouped[areaName] = {
+          areaName,
+          outletsMap: {},
+          skuMap: {},
+          totalQty: 0,
+          totalRevenue: 0,
+          transactionCount: 0
+        };
+      }
+
+      areaGrouped[areaName].totalQty += qty;
+      areaGrouped[areaName].totalRevenue += sale;
+      areaGrouped[areaName].transactionCount += 1;
+      totalBrandSales += sale;
+
+      let resolvedName = outletNamesMap[outletId.toUpperCase()] || '';
+      if (!resolvedName) {
+        if (outletId.toUpperCase() === 'GUEST' || outletId.toUpperCase() === 'UMUM/GUEST' || outletId.toUpperCase() === 'UMUM') {
+          resolvedName = 'Pelanggan Umum';
+        } else {
+          resolvedName = `Toko ${outletId}`;
+        }
+      }
+
+      if (!areaGrouped[areaName].outletsMap[outletId]) {
+        areaGrouped[areaName].outletsMap[outletId] = { qty: 0, revenue: 0, name: resolvedName };
+      }
+      areaGrouped[areaName].outletsMap[outletId].qty += qty;
+      areaGrouped[areaName].outletsMap[outletId].revenue += sale;
+
+      if (!areaGrouped[areaName].skuMap[prodName]) {
+        areaGrouped[areaName].skuMap[prodName] = { qty: 0, revenue: sale };
+      }
+      areaGrouped[areaName].skuMap[prodName].qty += qty;
+      areaGrouped[areaName].skuMap[prodName].revenue += sale;
+    });
+
+    return Object.values(areaGrouped).map(area => {
+      const outletsArr = Object.entries(area.outletsMap).map(([id, stats]) => ({
+        outletId: id,
+        outletName: stats.name,
+        qty: stats.qty,
+        revenue: stats.revenue
+      })).sort((a, b) => b.revenue - a.revenue);
+
+      const skusArr = Object.entries(area.skuMap).map(([name, stats]) => ({
+        productName: name,
+        qty: stats.qty,
+        revenue: stats.revenue
+      })).sort((a, b) => b.qty - a.qty);
+
+      const topSku = skusArr[0] || { productName: 'N/A', qty: 0, revenue: 0 };
+      const topOutlet = outletsArr[0] || { outletId: 'N/A', outletName: 'N/A', qty: 0, revenue: 0 };
+
+      const contributionPercent = totalBrandSales > 0 ? (area.totalRevenue / totalBrandSales) * 100 : 0;
+
+      let tierBadge = 'Tier 3 - Area Berkembang';
+      let tierColor = 'bg-slate-100 text-slate-700 border-slate-200';
+      if (contributionPercent >= 25) {
+        tierBadge = 'Tier 1 - Pasar Utama';
+        tierColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      } else if (contributionPercent >= 10) {
+        tierBadge = 'Tier 2 - Pasar Bertumbuh';
+        tierColor = 'bg-indigo-50 text-indigo-700 border-indigo-200';
+      }
+
+      return {
+        areaName: area.areaName,
+        totalQty: area.totalQty,
+        totalRevenue: area.totalRevenue,
+        outletsCount: outletsArr.length,
+        outlets: outletsArr,
+        topSku,
+        topOutlet,
+        skus: skusArr,
+        contributionPercent,
+        tierBadge,
+        tierColor,
+        transactionCount: area.transactionCount
+      };
+    }).sort((a, b) => b.totalRevenue - a.totalRevenue);
+  }, [filteredRecords, outletNamesMap]);
+
+  const filteredAreas = useMemo(() => {
+    if (!areaSearchQuery.trim()) return areaMappingList;
+    const q = areaSearchQuery.toLowerCase();
+    return areaMappingList.filter(a =>
+      a.areaName.toLowerCase().includes(q) ||
+      a.topSku.productName.toLowerCase().includes(q) ||
+      a.topOutlet.outletName.toLowerCase().includes(q)
+    );
+  }, [areaMappingList, areaSearchQuery]);
+
+  const totalAreaPages = Math.ceil(filteredAreas.length / ITEMS_PER_PAGE) || 1;
+  const paginatedAreas = useMemo(() => {
+    const start = (areaCurrentPage - 1) * ITEMS_PER_PAGE;
+    return filteredAreas.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredAreas, areaCurrentPage]);
 
   // Prepare monthly historical aggregated data with a robust 17-month scope (including entire 2025 history)
   const historicalTrends = useMemo(() => {
@@ -1191,7 +1732,20 @@ Laporan ini dihasilkan secara dinamis berdasarkan data aktual ledger Anda. Hak C
         >
           <span className="flex items-center gap-1.5">
             <Store className="w-3.5 h-3.5" />
-            Detil SKU & Sebaran Outlet
+            Detail SKU & Sebaran Outlet
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTabName('area_mapping')}
+          className={`px-4 py-2 text-xs font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+            activeTabName === 'area_mapping'
+              ? 'bg-indigo-600 text-white shadow-xs'
+              : 'text-slate-550 hover:text-slate-800 hover:bg-slate-100 font-bold'
+          }`}
+        >
+          <span className="flex items-center gap-1.5">
+            <MapPin className="w-3.5 h-3.5" />
+            Mapping Area & Wilayah
           </span>
         </button>
       </div>
@@ -1808,7 +2362,7 @@ Laporan ini dihasilkan secara dinamis berdasarkan data aktual ledger Anda. Hak C
           </div>
         </div>
         )
-      ) : (
+      ) : activeTabName === 'sku_outlets' ? (
         <div className="space-y-6">
           {/* SKU SEBARAN OUTLET PANEL */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -1893,7 +2447,7 @@ Laporan ini dihasilkan secara dinamis berdasarkan data aktual ledger Anda. Hak C
                     <th className="py-2.5 px-4">Nama Produk SKU</th>
                     <th className="py-2.5 px-4 text-center">Performa Sales</th>
                     <th className="py-2.5 px-4 text-center">Sebaran Outlet</th>
-                    <th className="py-2.5 px-4 text-center" style={{ width: '110px' }}>Detil</th>
+                    <th className="py-2.5 px-4 text-center" style={{ width: '110px' }}>Detail</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -2060,7 +2614,458 @@ Laporan ini dihasilkan secara dinamis berdasarkan data aktual ledger Anda. Hak C
             )}
           </div>
         </div>
-      )}
+      ) : activeTabName === 'area_mapping' ? (
+        <div className="space-y-6">
+          {/* AREA MAP & BATAS WILAYAH INTERACTIVE PANEL */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-3xs text-left space-y-5">
+            {/* Header */}
+            <div className="space-y-3 pb-3 border-b border-slate-100">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-600 text-white rounded-2xl shadow-xs shrink-0">
+                    <Compass className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-950 uppercase tracking-tight flex items-center gap-2 flex-wrap">
+                      <span>PETA INTERAKTIF SEKTOR RAYON JAWA TIMUR</span>
+                      <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-2.5 py-0.5 rounded-full font-bold">
+                        {Object.keys(EAST_JAVA_BOUNDARIES).length} Rayon Data Jatim
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      Surabaya • Sidoarjo • Gresik • Mojokerto • Jombang • Pantura • Madura • Direct Accounts
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Area Filter Selector Chips - Horizontal Scrollable Bar */}
+              <div className="flex items-center gap-1.5 overflow-x-auto max-w-full p-1.5 rounded-2xl border border-slate-150 bg-slate-50/80 scrollbar-none">
+                {Object.keys(EAST_JAVA_BOUNDARIES).map(key => {
+                  const info = EAST_JAVA_BOUNDARIES[key];
+                  const isSel = selectedMapRegion === key;
+                  return (
+                    <button
+                      key={info.code}
+                      onClick={() => {
+                        setSelectedMapRegion(key);
+                        setAreaSearchQuery('');
+                      }}
+                      className={`px-3 py-1 text-[10.5px] font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap border shrink-0 ${
+                        isSel
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                          : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+                      }`}
+                    >
+                      {info.shortName}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Interactive Stage & Inspector Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+              {/* Visual Map Stage (7 cols) - Real Interactive Leaflet Map */}
+              <div className="lg:col-span-7 h-[480px]">
+                <RealAreaMap
+                  selectedRegion={selectedMapRegion}
+                  onSelectRegion={(regionKey) => {
+                    setSelectedMapRegion(regionKey);
+                    setAreaSearchQuery('');
+                  }}
+                  areaMappingList={areaMappingList}
+                  formatCurrency={formatCurrency}
+                />
+              </div>
+
+              {/* Selected Area Inspector Card (5 cols) */}
+              <div className="lg:col-span-5 bg-slate-50 rounded-2xl p-4.5 border border-slate-200 flex flex-col justify-between h-full min-h-[480px]">
+                {(() => {
+                  const selectedBoundary = EAST_JAVA_BOUNDARIES[selectedMapRegion] || EAST_JAVA_BOUNDARIES['SURABAYA PUSAT'];
+                  const selectedData = areaMappingList.find(a => a.areaName === selectedMapRegion) || {
+                    totalRevenue: 0,
+                    totalQty: 0,
+                    outletsCount: 0,
+                    contributionPercent: 0,
+                    topSku: { productName: '-', qty: 0, revenue: 0 },
+                    topOutlet: { outletName: '-', qty: 0, revenue: 0 }
+                  };
+
+                  const avgRevPerOutlet = selectedData.outletsCount > 0 ? selectedData.totalRevenue / selectedData.outletsCount : 0;
+                  const avgQtyPerOutlet = selectedData.outletsCount > 0 ? Math.round(selectedData.totalQty / selectedData.outletsCount) : 0;
+
+                  return (
+                    <div className="space-y-3.5 text-left flex-1 flex flex-col justify-between">
+                      <div className="space-y-3">
+                        {/* Card Title */}
+                        <div className="flex items-start justify-between gap-3 pb-2.5 border-b border-slate-200">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${selectedBoundary.color} text-white flex items-center justify-center font-mono font-black text-xs shadow-xs shrink-0`}>
+                              {selectedBoundary.code}
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-black text-slate-900 leading-tight">
+                                {selectedBoundary.fullName}
+                              </h4>
+                              <span className="text-[10px] text-slate-500 font-mono font-semibold">
+                                Koordinat: {selectedBoundary.coord}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <span className="text-[10px] bg-indigo-100 text-indigo-800 border border-indigo-200 px-2.5 py-0.5 rounded-full font-extrabold inline-block">
+                              {selectedData.contributionPercent.toFixed(1)}% Share
+                            </span>
+                            <span className="text-[9.5px] text-slate-400 font-mono block mt-0.5">
+                              {selectedData.outletsCount} Ritel Aktif
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Contribution Progress Bar */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between items-center text-[10px] text-slate-500 font-medium">
+                            <span>Kontribusi Penjualan Rayon</span>
+                            <span className="font-bold font-mono text-indigo-600">{selectedData.contributionPercent.toFixed(1)}%</span>
+                          </div>
+                          <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full transition-all duration-500"
+                              style={{ width: `${Math.min(100, Math.max(2, selectedData.contributionPercent))}%` }}
+                            ></div>
+                          </div>
+                        </div>
+
+                        {/* HUB STATUS & LOGISTICS CORRIDOR */}
+                        <div className="p-3 bg-white rounded-xl border border-slate-200 text-[11px] space-y-1 shadow-3xs">
+                          <div className="flex items-center gap-1.5 text-indigo-900 font-extrabold">
+                            <Truck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                            <span>{selectedBoundary.hubType}</span>
+                          </div>
+                          <p className="text-[10.5px] text-slate-600 font-medium leading-relaxed pl-5">
+                            <span className="font-bold text-slate-800">Jalur Logistik:</span> {selectedBoundary.corridor}
+                          </p>
+                        </div>
+
+                        {/* SALES METRICS FOR THIS REGION */}
+                        <div className="grid grid-cols-2 gap-2 text-center">
+                          <div className="p-2.5 bg-white rounded-xl border border-slate-200 shadow-3xs">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Total Omset Penjualan</span>
+                            <span className="text-sm font-black font-mono text-indigo-950 block mt-0.5">
+                              {formatCurrency(selectedData.totalRevenue)}
+                            </span>
+                          </div>
+                          <div className="p-2.5 bg-white rounded-xl border border-slate-200 shadow-3xs">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Total Volume Terjual</span>
+                            <span className="text-sm font-black font-mono text-slate-800 block mt-0.5">
+                              {selectedData.totalQty.toLocaleString('id-ID')} unit
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* PRODUCTIVITY AVERAGES PER OUTLET */}
+                        <div className="grid grid-cols-2 gap-2 text-center">
+                          <div className="p-2 bg-slate-100/80 rounded-xl border border-slate-200/80">
+                            <span className="text-[8.5px] font-bold text-slate-500 uppercase tracking-tight block">Rerata Omset / Outlet</span>
+                            <span className="text-xs font-bold font-mono text-slate-800 block mt-0.5">
+                              {formatCurrency(avgRevPerOutlet)}
+                            </span>
+                          </div>
+                          <div className="p-2 bg-slate-100/80 rounded-xl border border-slate-200/80">
+                            <span className="text-[8.5px] font-bold text-slate-500 uppercase tracking-tight block">Rerata Volume / Outlet</span>
+                            <span className="text-xs font-bold font-mono text-slate-800 block mt-0.5">
+                              {avgQtyPerOutlet.toLocaleString('id-ID')} unit
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* TOP SKU & TOP OUTLET INFO */}
+                        <div className="grid grid-cols-2 gap-2 text-[10px]">
+                          <div className="p-2.5 bg-indigo-50/70 rounded-xl border border-indigo-100">
+                            <span className="text-[8.5px] font-extrabold uppercase text-indigo-700 block">Top SKU Rayon</span>
+                            <span className="font-bold text-slate-900 truncate block mt-0.5" title={selectedData.topSku.productName}>
+                              {selectedData.topSku.productName}
+                            </span>
+                            {selectedData.topSku.revenue > 0 && (
+                              <span className="text-[9px] font-mono text-indigo-600 block mt-0.5">
+                                {formatCurrency(selectedData.topSku.revenue)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="p-2.5 bg-emerald-50/70 rounded-xl border border-emerald-100">
+                            <span className="text-[8.5px] font-extrabold uppercase text-emerald-800 block">Top Outlet Rayon</span>
+                            <span className="font-bold text-slate-900 truncate block mt-0.5" title={selectedData.topOutlet.outletName}>
+                              {selectedData.topOutlet.outletName}
+                            </span>
+                            {selectedData.topOutlet.revenue > 0 && (
+                              <span className="text-[9px] font-mono text-emerald-700 block mt-0.5">
+                                {formatCurrency(selectedData.topOutlet.revenue)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* FILTER TABLE BUTTON */}
+                      <button
+                        onClick={() => {
+                          setAreaSearchQuery(selectedBoundary.shortName);
+                          setAreaCurrentPage(1);
+                        }}
+                        className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer mt-2"
+                      >
+                        <span>Filter Tabel ke {selectedBoundary.shortName}</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+
+          </div>
+
+          {/* TABEL MAPPING AREA & WILAYAH PENJUALAN */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-3xs text-left space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-50 text-indigo-700 rounded-xl border border-indigo-100 shrink-0">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-slate-950 uppercase tracking-tight flex items-center gap-2">
+                    TABEL MAPPING AREA PENJUALAN & WILAYAH
+                    <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded-full font-bold">
+                      {areaMappingList.length} Wilayah
+                    </span>
+                  </h4>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-wide">
+                    Pemetaan Distribusi Penjualan, Sebaran Ritel & Kontribusi Omset Berdasarkan Wilayah
+                  </p>
+                </div>
+              </div>
+
+              {/* Area Search filter input */}
+              <div className="relative w-full sm:w-80">
+                <input
+                  type="text"
+                  placeholder="Cari nama area atau wilayah..."
+                  value={areaSearchQuery}
+                  onChange={(e) => {
+                    setAreaSearchQuery(e.target.value);
+                    setAreaCurrentPage(1);
+                  }}
+                  className="w-full px-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-600 focus:bg-white"
+                />
+              </div>
+            </div>
+
+            {/* Area Mapping Table */}
+            <div className="overflow-x-auto border border-slate-100 rounded-2xl">
+              <table className="w-full text-left font-sans text-[11px] border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-extrabold uppercase text-[8.5px] tracking-widest">
+                    <th className="py-2.5 px-4">Nama Area / Wilayah</th>
+                    <th className="py-2.5 px-4 text-center">Outlet Aktif</th>
+                    <th className="py-2.5 px-4 text-center">Total Volume & Omset</th>
+                    <th className="py-2.5 px-4 text-center">Kontribusi (%)</th>
+                    <th className="py-2.5 px-4 text-center">SKU Terlaris</th>
+                    <th className="py-2.5 px-4 text-center" style={{ width: '100px' }}>Detail</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {paginatedAreas.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-400 font-semibold uppercase tracking-wider text-xs">
+                        Tidak ada data area ditemukan untuk pencarian "{areaSearchQuery}"
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedAreas.map((area) => {
+                      const isExpanded = expandedArea === area.areaName;
+
+                      return (
+                        <Fragment key={area.areaName}>
+                          <tr className={`hover:bg-slate-50/40 transition-colors ${isExpanded ? 'bg-indigo-50/10' : ''}`}>
+                            <td className="py-2.5 px-4">
+                              <div className="font-extrabold text-slate-900 leading-normal flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0"></span>
+                                <span>{area.areaName}</span>
+                              </div>
+                              <span className={`inline-block mt-1 font-mono font-bold text-[8.5px] px-1.5 py-0.2 rounded border ${area.tierColor}`}>
+                                {area.tierBadge}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-4 text-center">
+                              <div className="font-mono font-extrabold text-slate-900">
+                                {area.outletsCount} Outlet
+                              </div>
+                              <span className="text-[9.5px] text-slate-400 font-medium">
+                                {area.transactionCount} Transaksi
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-4 text-center">
+                              <div className="font-mono font-extrabold text-indigo-900">
+                                {formatCurrency(area.totalRevenue)}
+                              </div>
+                              <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                                {area.totalQty.toLocaleString('id-ID')} unit
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-4 text-center">
+                              <div className="inline-block font-mono font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded text-[10px]">
+                                {area.contributionPercent.toFixed(1)}%
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-4 text-center max-w-[180px]">
+                              <div className="font-extrabold text-slate-800 text-[10.5px] truncate" title={area.topSku.productName}>
+                                {area.topSku.productName}
+                              </div>
+                              <span className="text-[9.5px] text-slate-400 font-mono block">
+                                {area.topSku.qty.toLocaleString('id-ID')} unit terjual
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-4 text-center align-middle">
+                              <button
+                                onClick={() => setExpandedArea(isExpanded ? null : area.areaName)}
+                                className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-1 mx-auto cursor-pointer border ${
+                                  isExpanded
+                                    ? 'bg-rose-50 border-rose-150 text-rose-600 hover:bg-rose-100'
+                                    : 'bg-indigo-50 border-indigo-100 text-indigo-650 hover:bg-indigo-100/70'
+                                }`}
+                              >
+                                <span>{isExpanded ? 'Tutup' : 'Lihat'}</span>
+                              </button>
+                            </td>
+                          </tr>
+
+                          {/* Expanded Area details panel */}
+                          {isExpanded && (
+                            <tr key={`${area.areaName}-expanded`}>
+                              <td colSpan={6} className="p-3 bg-slate-50/70">
+                                <div className="border border-slate-200 bg-white rounded-2xl p-4 shadow-3xs space-y-3 font-sans max-w-4xl mx-auto">
+                                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                                    <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider flex items-center gap-1.5">
+                                      <Store className="w-3.5 h-3.5 text-indigo-600" />
+                                      Daftar Outlet & Sebaran Produk di {area.areaName}
+                                    </span>
+                                    <span className="text-[10px] text-indigo-700 font-mono font-black uppercase">
+                                      Total Wilayah: {formatCurrency(area.totalRevenue)} ({area.totalQty.toLocaleString('id-ID')} unit)
+                                    </span>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                                    {/* Outlets in area */}
+                                    <div className="space-y-1.5">
+                                      <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                                        Top Outlet di Wilayah Ini ({area.outletsCount})
+                                      </span>
+                                      <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden bg-white max-h-[180px] overflow-y-auto">
+                                        {area.outlets.map((o, idx) => (
+                                          <div key={o.outletId} className="p-2 flex items-center justify-between gap-2 text-xs hover:bg-slate-50/50">
+                                            <div className="flex items-start gap-2 min-w-0">
+                                              <span className="text-[9px] font-mono font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded mt-0.5 shrink-0">
+                                                #{idx + 1}
+                                              </span>
+                                              <div className="min-w-0">
+                                                <span className="text-[11px] font-bold text-slate-900 block truncate" title={o.outletName}>
+                                                  {o.outletName}
+                                                </span>
+                                                <span className="text-[9px] font-mono text-slate-400">Kode: {o.outletId}</span>
+                                              </div>
+                                            </div>
+                                            <div className="text-right shrink-0">
+                                              <span className="font-mono font-bold text-indigo-900 text-[11px] block">
+                                                {formatCurrency(o.revenue)}
+                                              </span>
+                                              <span className="text-[9px] text-slate-400 font-mono block">
+                                                {o.qty.toLocaleString('id-ID')} unit
+                                              </span>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+
+                                    {/* Products in area */}
+                                    <div className="space-y-1.5">
+                                      <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                                        Produk Terlaris di Wilayah Ini ({area.skus.length})
+                                      </span>
+                                      <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden bg-white max-h-[180px] overflow-y-auto">
+                                        {area.skus.map((s, idx) => (
+                                          <div key={s.productName} className="p-2 flex items-center justify-between gap-2 text-xs hover:bg-slate-50/50">
+                                            <div className="flex items-start gap-2 min-w-0">
+                                              <span className="text-[9px] font-mono font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded mt-0.5 shrink-0">
+                                                #{idx + 1}
+                                              </span>
+                                              <span className="text-[11px] font-bold text-slate-900 truncate" title={s.productName}>
+                                                {s.productName}
+                                              </span>
+                                            </div>
+                                            <div className="text-right shrink-0">
+                                              <span className="font-mono font-extrabold text-slate-800 text-[11px] block">
+                                                {s.qty.toLocaleString('id-ID')} unit
+                                              </span>
+                                              <span className="text-[9px] text-slate-400 font-mono block">
+                                                {formatCurrency(s.revenue)}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Area Pagination Controls */}
+            {totalAreaPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 font-sans text-xs text-slate-500">
+                <span className="font-semibold font-mono text-[10.5px]">
+                  Menampilkan {Math.min(filteredAreas.length, (areaCurrentPage - 1) * ITEMS_PER_PAGE + 1)}-{Math.min(filteredAreas.length, areaCurrentPage * ITEMS_PER_PAGE)} dari {filteredAreas.length} Wilayah
+                </span>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    disabled={areaCurrentPage === 1}
+                    onClick={() => setAreaCurrentPage(prev => Math.max(1, prev - 1))}
+                    className="p-1 px-2.5 bg-slate-50 hover:bg-slate-100 disabled:opacity-40 border border-slate-200 rounded-lg text-slate-600 transition-all font-semibold flex items-center gap-1 cursor-pointer disabled:cursor-not-allowed text-[10.5px] uppercase tracking-wide"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <span>Sebelumnya</span>
+                  </button>
+
+                  <div className="flex items-center gap-1 mx-1.5 font-mono text-[10.5px] font-black text-slate-700">
+                    Halaman <span className="text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded">{areaCurrentPage}</span> dari {totalAreaPages}
+                  </div>
+
+                  <button
+                    disabled={areaCurrentPage === totalAreaPages}
+                    onClick={() => setAreaCurrentPage(prev => Math.min(totalAreaPages, prev + 1))}
+                    className="p-1 px-2.5 bg-slate-50 hover:bg-slate-100 disabled:opacity-40 border border-slate-200 rounded-lg text-slate-600 transition-all font-semibold flex items-center gap-1 cursor-pointer disabled:cursor-not-allowed text-[10.5px] uppercase tracking-wide"
+                  >
+                    <span>Berikutnya</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
