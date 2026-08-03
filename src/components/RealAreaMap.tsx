@@ -124,8 +124,8 @@ export const RealAreaMap: React.FC<RealAreaMapProps> = ({
     if (!map) return;
 
     // Clear existing markers and circles
-    Object.values(markersRef.current).forEach(m => m.remove());
-    Object.values(circlesRef.current).forEach(c => c.remove());
+    Object.values(markersRef.current).forEach((m: any) => m?.remove());
+    Object.values(circlesRef.current).forEach((c: any) => c?.remove());
     markersRef.current = {};
     circlesRef.current = {};
 

@@ -9,7 +9,7 @@ import {
   Trash2, Edit, Copy, Download, AlertCircle, FileSpreadsheet
 } from 'lucide-react';
 import { SalesRecord } from '../types';
-import { formatCurrency, formatDate } from '../utils';
+import { formatCurrency, formatDate, getRecordChannel, getCustomerChannel } from '../utils';
 
 interface SalesTableProps {
   records: SalesRecord[];
@@ -397,6 +397,12 @@ export default function SalesTable({
                 </div>
               </th>
 
+              <th className="p-3.5 hover:bg-slate-100/50 transition-colors w-32 font-mono text-[10px]">
+                <div className="flex items-center gap-1">
+                  <span>Sal. Channel</span>
+                </div>
+              </th>
+
               <th onClick={() => triggerSort('product')} className="p-3.5 cursor-pointer hover:bg-slate-100/50 transition-colors">
                 <div className="flex items-center gap-1">
                   <span>Product Name</span>
@@ -466,6 +472,13 @@ export default function SalesTable({
                     {/* Customer ID */}
                     <td className="p-3.5 font-mono text-xs font-bold text-slate-600 max-w-[120px] truncate" title={r.customer_id || 'GUEST'}>
                       {r.customer_id || 'GUEST'}
+                    </td>
+
+                    {/* Channel */}
+                    <td className="p-3.5 font-mono text-xs whitespace-nowrap">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-50 text-sky-800 border border-sky-100">
+                        {getRecordChannel(r) || getCustomerChannel([r], r.customer_id || '')}
+                      </span>
                     </td>
 
                     {/* Product Name */}

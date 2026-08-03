@@ -14,7 +14,8 @@ import {
   Briefcase, 
   Award, 
   CheckCircle,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Store
 } from 'lucide-react';
 import { SalesRecord } from '../types';
 import { CASH_BACK_PARTICIPANTS, WHITE_BONUS_PARTICIPANTS } from './programParticipants';
@@ -27,7 +28,7 @@ import {
   Tooltip, 
   ResponsiveContainer 
 } from 'recharts';
-import { calculateMonthlyTrends, formatDate, parseExcelDate } from '../utils';
+import { calculateMonthlyTrends, formatDate, parseExcelDate, getCustomerChannel, getRecordChannel } from '../utils';
 
 interface CustomerSummary {
   customerId: string;
@@ -347,6 +348,12 @@ export default function CustomerSpotlight({ records, selectedCustId: propSelecte
     return list;
   }, [activeCustomerRecords, productSearchQuery, selectedMonthFilter]);
 
+  // Determine active customer's sales channel
+  const activeChannel = useMemo(() => {
+    if (!activeCustomer) return 'GT - General Trade';
+    return getCustomerChannel(records, activeCustomer.customerId);
+  }, [records, activeCustomer]);
+
   // Reset month filter when customer changes
   useEffect(() => {
     setSelectedMonthFilter('all');
@@ -367,6 +374,7 @@ export default function CustomerSpotlight({ records, selectedCustId: propSelecte
         product: r.product,
         group_name: r.group_name,
         quantity: r.quantity,
+        channel: getRecordChannel(r) || activeChannel
       }));
     }
 
@@ -408,9 +416,10 @@ export default function CustomerSpotlight({ records, selectedCustId: propSelecte
         group_name: item.group_name,
         quantity: item.quantity,
         frequency: item.frequency,
-        lastDate: item.lastDate
+        lastDate: item.lastDate,
+        channel: activeChannel
       }));
-  }, [sortedCustomerRecords, isGroupedView]);
+  }, [sortedCustomerRecords, isGroupedView, activeChannel]);
 
   const paginatedList = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -648,6 +657,11 @@ export default function CustomerSpotlight({ records, selectedCustId: propSelecte
                           {clientName}
                         </p>
                       )}
+                      <span className={`text-[9px] font-medium font-mono inline-block mt-0.5 ${
+                        isSelected ? 'text-indigo-200' : 'text-slate-400'
+                      }`}>
+                        {getCustomerChannel(records, client.customerId)}
+                      </span>
                     </div>
                   </div>
                   <div className="text-right shrink-0 self-center">
@@ -693,6 +707,10 @@ export default function CustomerSpotlight({ records, selectedCustId: propSelecte
                     <span className="text-[9px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
                       Indexed Account
                     </span>
+                    <span className="text-[9px] bg-sky-50 text-sky-800 border border-sky-100 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider flex items-center gap-1">
+                      <Store className="w-2.5 h-2.5 text-sky-600" />
+                      Channel: {activeChannel}
+                    </span>
                   </div>
                   {getClientName(activeCustomer.customerId) && (
                     <span className="font-mono text-xs text-slate-500 font-bold block mt-0.5">
@@ -702,12 +720,19 @@ export default function CustomerSpotlight({ records, selectedCustId: propSelecte
                 </div>
               </div>
 
-              {bestCategory && (
-                <div className="bg-gradient-to-r from-emerald-50 to-emerald-100/30 border border-emerald-100 px-4 py-2.5 rounded-2xl shrink-0 text-left sm:text-right">
-                  <span className="text-[10px] text-emerald-800 font-extrabold uppercase tracking-wider block font-mono">Core Affinity Category</span>
-                  <span className="text-sm font-extrabold text-slate-800 tracking-tight block mt-0.5">{bestCategory.name}</span>
+              <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
+                <div className="bg-gradient-to-r from-sky-50 to-blue-100/30 border border-sky-100 px-4 py-2.5 rounded-2xl shrink-0 text-left sm:text-right">
+                  <span className="text-[10px] text-sky-800 font-extrabold uppercase tracking-wider block font-mono">Sales Channel</span>
+                  <span className="text-sm font-extrabold text-slate-800 tracking-tight block mt-0.5">{activeChannel}</span>
                 </div>
-              )}
+
+                {bestCategory && (
+                  <div className="bg-gradient-to-r from-emerald-50 to-emerald-100/30 border border-emerald-100 px-4 py-2.5 rounded-2xl shrink-0 text-left sm:text-right">
+                    <span className="text-[10px] text-emerald-800 font-extrabold uppercase tracking-wider block font-mono">Core Affinity Category</span>
+                    <span className="text-sm font-extrabold text-slate-800 tracking-tight block mt-0.5">{bestCategory.name}</span>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* 2. Analytical Metrics row */}
@@ -902,9 +927,10 @@ export default function CustomerSpotlight({ records, selectedCustId: propSelecte
                   <thead>
                     <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                       <th className="py-3 px-2 w-12">No.</th>
-                      <th className="py-3 px-2 w-36">
+                      <th className="py-3 px-2 w-32">
                         {isGroupedView ? 'Frekuensi & Tanggal' : 'Tanggal Faktur'}
                       </th>
+                      <th className="py-3 px-2 w-36">Sal. Channel</th>
                       <th className="py-3 px-2">Nama Produk</th>
                       <th className="py-3 px-2">Kategori</th>
                       <th className="py-3 px-2 text-right w-24">pcs</th>
@@ -928,6 +954,11 @@ export default function CustomerSpotlight({ records, selectedCustId: propSelecte
                             ) : (
                               item.dateDisplay
                             )}
+                          </td>
+                          <td className="py-3 px-2 font-mono text-xs whitespace-nowrap">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-50 text-sky-800 border border-sky-100">
+                              {item.channel || activeChannel}
+                            </span>
                           </td>
                           <td className="py-3 px-2">
                             <span className="font-bold text-slate-800 block text-xs" title={item.product}>

@@ -12,6 +12,7 @@ export interface SalesRecord {
   unitPrice: number;
   ttl_sales: number;
   customer_id?: string;
+  channel?: string;
   customFields?: Record<string, any>;
 }
 

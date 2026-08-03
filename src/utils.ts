@@ -268,12 +268,15 @@ export function standardizeRow(row: any, mapping: ColumnMapping): SalesRecord {
   const detectedCustHeader = findHeaderMatch(['customerid', 'custid', 'customer_id', 'cust_id', 'customer', 'customername', 'customer_name', 'clientid', 'client_id', 'client', 'id_customer', 'idcustomer', 'idcust', 'id_cust', 'pelanggan', 'id_pelanggan', 'buyer']);
   const custVal = detectedCustHeader && row[detectedCustHeader] !== undefined && row[detectedCustHeader] !== null ? String(row[detectedCustHeader]).trim() : 'GUEST';
 
+  const detectedChannelHeader = findHeaderMatch(['salchannel', 'sal_channel', 'saleschannel', 'slschannel', 'channel', 'kanal', 'kanaldistribusi', 'channeldesc', 'tipechannel', 'outletchannel', 'channelname', 'sal_chan', 'salchan']);
+  const channelVal = detectedChannelHeader && row[detectedChannelHeader] !== undefined && row[detectedChannelHeader] !== null ? String(row[detectedChannelHeader]).trim() : '';
+
   // Extract all remaining columns as custom fields
   const customFields: Record<string, any> = {};
   const mappedObjValues = Object.values(mapping).filter(v => !!v);
   
   Object.keys(row).forEach(key => {
-    if (!mappedObjValues.includes(key) && key !== detectedCustHeader) {
+    if (!mappedObjValues.includes(key) && key !== detectedCustHeader && key !== detectedChannelHeader) {
       customFields[key] = row[key];
     }
   });
@@ -287,6 +290,7 @@ export function standardizeRow(row: any, mapping: ColumnMapping): SalesRecord {
     unitPrice: unitPriceVal,
     ttl_sales: ttlSalesVal,
     customer_id: custVal || 'GUEST',
+    channel: channelVal || undefined,
     customFields: Object.keys(customFields).length > 0 ? customFields : undefined
   };
 }
@@ -443,7 +447,8 @@ export function generateSampleData(): SalesRecord[] {
         quantity: qty1,
         unitPrice: p1.price,
         ttl_sales: sales1,
-        customer_id: cust1
+        customer_id: cust1,
+        channel: getCustomerChannel([], cust1)
       });
 
       // Transaction 2 (47%)
@@ -461,7 +466,8 @@ export function generateSampleData(): SalesRecord[] {
         quantity: qty2,
         unitPrice: p2.price,
         ttl_sales: sales2,
-        customer_id: cust2
+        customer_id: cust2,
+        channel: getCustomerChannel([], cust2)
       });
     });
   }
@@ -624,4 +630,53 @@ export function exportToExcel(records: SalesRecord[], fileName = 'sales_report_e
   
   // Generate file download
   XLSX.writeFile(workbook, fileName);
+}
+
+/**
+ * Extract channel string from a record or its custom fields
+ */
+export function getRecordChannel(record: SalesRecord): string {
+  if (record.channel && record.channel.trim()) {
+    return record.channel.trim();
+  }
+  if (record.customFields) {
+    for (const [key, val] of Object.entries(record.customFields)) {
+      const kLower = key.toLowerCase().replace(/[\s_-]/g, '');
+      if (
+        (kLower.includes('channel') || kLower.includes('kanal') || kLower.includes('salchan') || kLower.includes('slschan')) &&
+        val && String(val).trim()
+      ) {
+        return String(val).trim();
+      }
+    }
+  }
+  return '';
+}
+
+/**
+ * Helper to determine customer's sales channel from records or default
+ */
+export function getCustomerChannel(records: SalesRecord[], customerId: string): string {
+  if (records && records.length > 0) {
+    const custIdLower = (customerId || '').trim().toLowerCase();
+    const custRecords = records.filter(r => (r.customer_id || 'GUEST').trim().toLowerCase() === custIdLower);
+    
+    for (const r of custRecords) {
+      const chan = getRecordChannel(r);
+      if (chan) return chan;
+    }
+  }
+
+  // Sensible default fallback mapping for Rohto/cosmetic distributor customer codes
+  const str = (customerId || '').trim().toLowerCase();
+  if (str.includes('a82202') || str.includes('citra')) return 'GT - General Trade';
+  if (str.includes('a87412') || str.includes('belia')) return 'MT - Modern Trade';
+  if (str.includes('b20099') || str.includes('grow')) return 'GT - General Trade';
+  if (str.includes('a87569') || str.includes('envio')) return 'E-Commerce / OLS';
+  if (str.includes('a83059') || str.includes('jelita')) return 'Cosmetic Chain';
+  if (str.includes('b12479') || str.includes('surya')) return 'Subdistributor';
+  if (str.includes('a87461') || str.includes('bahtera')) return 'GT - General Trade';
+  if (str.includes('sehat') || str.includes('apotek') || str.includes('pharma')) return 'Apotek & Pharma';
+
+  return 'GT - General Trade';
 }
